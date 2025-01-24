@@ -1,19 +1,24 @@
-import { satisfies } from '@storybook/core-common';
-import type { ComponentAnnotations, StoryAnnotations } from '@storybook/types';
+// this file tests Typescript types that's why there are no assertions
+import { describe, it } from 'vitest';
+
+import { satisfies } from 'storybook/internal/common';
+import type { Canvas, ComponentAnnotations, StoryAnnotations } from 'storybook/internal/types';
+
 import { expectTypeOf } from 'expect-type';
 import type { SetOptional } from 'type-fest';
 import { h } from 'vue';
-import type { ComponentPropsAndSlots, Decorator, Meta, StoryObj } from './public-types';
-import type { VueRenderer } from './types';
+
 import BaseLayout from './__tests__/BaseLayout.vue';
 import Button from './__tests__/Button.vue';
-import DecoratorTsVue from './__tests__/Decorator.vue';
 import Decorator2TsVue from './__tests__/Decorator2.vue';
+import DecoratorTsVue from './__tests__/Decorator.vue';
+import type { ComponentPropsAndSlots, Decorator, Meta, StoryObj } from './public-types';
+import type { VueRenderer } from './types';
 
 type ButtonProps = ComponentPropsAndSlots<typeof Button>;
 
 describe('Meta', () => {
-  test('Generic parameter of Meta can be a component', () => {
+  it('Generic parameter of Meta can be a component', () => {
     const meta: Meta<typeof Button> = {
       component: Button,
       args: { label: 'good', disabled: false },
@@ -22,7 +27,7 @@ describe('Meta', () => {
     expectTypeOf(meta).toEqualTypeOf<ComponentAnnotations<VueRenderer, ButtonProps>>();
   });
 
-  test('Generic parameter of Meta can be the props of the component', () => {
+  it('Generic parameter of Meta can be the props of the component', () => {
     const meta: Meta<{ disabled: boolean; label: string }> = {
       component: Button,
       args: { label: 'good', disabled: false },
@@ -33,7 +38,7 @@ describe('Meta', () => {
     >();
   });
 
-  test('Events are inferred from component', () => {
+  it('Events are inferred from component', () => {
     const meta: Meta<typeof Button> = {
       component: Button,
       args: {
@@ -57,7 +62,7 @@ describe('Meta', () => {
 });
 
 describe('StoryObj', () => {
-  test('✅ Required args may be provided partial in meta and the story', () => {
+  it('✅ Required args may be provided partial in meta and the story', () => {
     const meta = satisfies<Meta<typeof Button>>()({
       component: Button,
       args: { label: 'good' },
@@ -68,7 +73,7 @@ describe('StoryObj', () => {
     expectTypeOf<Actual>().toEqualTypeOf<Expected>();
   });
 
-  test('❌ The combined shape of meta args and story args must match the required args.', () => {
+  it('❌ The combined shape of meta args and story args must match the required args.', () => {
     {
       const meta = satisfies<Meta<typeof Button>>()({ component: Button });
 
@@ -98,7 +103,7 @@ describe('StoryObj', () => {
     }
   });
 
-  test('Component can be used as generic parameter for StoryObj', () => {
+  it('Component can be used as generic parameter for StoryObj', () => {
     expectTypeOf<StoryObj<typeof Button>>().toEqualTypeOf<
       StoryAnnotations<VueRenderer, ButtonProps>
     >();
@@ -108,7 +113,7 @@ describe('StoryObj', () => {
 type ThemeData = 'light' | 'dark';
 
 describe('Story args can be inferred', () => {
-  test('Correct args are inferred when type is widened for render function', () => {
+  it('Correct args are inferred when type is widened for render function', () => {
     type Props = ButtonProps & { theme: ThemeData };
 
     const meta = satisfies<Meta<Props>>()({
@@ -130,7 +135,7 @@ describe('Story args can be inferred', () => {
     { args: { decoratorArg } }
   ) => h(DecoratorTsVue, { decoratorArg }, h(storyFn()));
 
-  test('Correct args are inferred when type is widened for decorators', () => {
+  it('Correct args are inferred when type is widened for decorators', () => {
     type Props = ButtonProps & { decoratorArg: string };
 
     const meta = satisfies<Meta<Props>>()({
@@ -145,7 +150,7 @@ describe('Story args can be inferred', () => {
     expectTypeOf(Basic).toEqualTypeOf<Expected>();
   });
 
-  test('Correct args are inferred when type is widened for multiple decorators', () => {
+  it('Correct args are inferred when type is widened for multiple decorators', () => {
     type Props = ButtonProps & {
       decoratorArg: string;
       decoratorArg2: string;
@@ -171,7 +176,7 @@ describe('Story args can be inferred', () => {
   });
 });
 
-test('Infer type of slots', () => {
+it('Infer type of slots', () => {
   const meta = {
     component: BaseLayout,
   } satisfies Meta<typeof BaseLayout>;
@@ -193,4 +198,14 @@ test('Infer type of slots', () => {
 
   type Expected = StoryAnnotations<VueRenderer, Props, Props>;
   expectTypeOf(Basic).toEqualTypeOf<Expected>();
+});
+
+it('mount accepts a Component', () => {
+  const Basic: StoryObj<typeof Button> = {
+    async play({ mount }) {
+      const canvas = await mount(Button, { props: { label: 'label', disabled: true } });
+      expectTypeOf(canvas).toEqualTypeOf<Canvas>();
+    },
+  };
+  expectTypeOf(Basic).toEqualTypeOf<StoryObj<typeof Button>>();
 });

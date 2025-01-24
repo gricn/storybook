@@ -1,8 +1,13 @@
+// @vitest-environment happy-dom
+import { cleanup, fireEvent, render } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react';
+
 import type { NodeResult } from 'axe-core';
+
+import { A11yContext, type A11yContextStore } from '../A11yContext';
 import HighlightToggle from './HighlightToggle';
-import { A11yContext } from '../A11yContext';
 
 const nodeResult = (target: string): NodeResult => ({
   html: '',
@@ -12,21 +17,29 @@ const nodeResult = (target: string): NodeResult => ({
   none: [],
 });
 
-const defaultProviderValue = {
+const defaultProviderValue: A11yContextStore = {
   results: {
     passes: [],
     incomplete: [],
     violations: [],
   },
-  setResults: jest.fn(),
+  status: 'initial',
+  discrepancy: null,
+  error: null,
+  setStatus: vi.fn(),
+  handleManual: vi.fn(),
   highlighted: [],
-  toggleHighlight: jest.fn(),
-  clearHighlights: jest.fn(),
+  toggleHighlight: vi.fn(),
+  clearHighlights: vi.fn(),
   tab: 0,
-  setTab: jest.fn(),
+  setTab: vi.fn(),
 };
 
 describe('<HighlightToggle />', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it('should render', () => {
     const { container } = render(
       <HighlightToggle elementsToHighlight={[nodeResult('#storybook-root')]} />
@@ -67,6 +80,10 @@ describe('<HighlightToggle />', () => {
   });
 
   describe('toggleHighlight', () => {
+    afterEach(() => {
+      cleanup();
+    });
+
     it.each`
       highlighted            | elementsToHighlight                        | expected
       ${[]}                  | ${['#storybook-root']}                     | ${true}

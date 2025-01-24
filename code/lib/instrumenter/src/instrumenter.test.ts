@@ -1,23 +1,25 @@
-/// <reference types="@types/jest" />;
-/* eslint-disable no-underscore-dangle */
+// @vitest-environment happy-dom
 
-import { addons, mockChannel } from '@storybook/preview-api';
-import { logger } from '@storybook/client-logger';
+/* eslint-disable no-underscore-dangle */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import {
   FORCE_REMOUNT,
   SET_CURRENT_STORY,
   STORY_RENDER_PHASE_CHANGED,
-} from '@storybook/core-events';
+} from 'storybook/internal/core-events';
+import { addons, mockChannel } from 'storybook/internal/preview-api';
+
 import { global } from '@storybook/global';
 
 import { EVENTS, Instrumenter } from './instrumenter';
 import type { Options } from './types';
 
-jest.mock('@storybook/client-logger');
+vi.mock('storybook/internal/client-logger');
 
-const callSpy = jest.fn();
-const syncSpy = jest.fn();
-const forceRemountSpy = jest.fn();
+const callSpy = vi.fn();
+const syncSpy = vi.fn();
+const forceRemountSpy = vi.fn();
 addons.setChannel(mockChannel());
 addons.getChannel().on(EVENTS.CALL, callSpy);
 addons.getChannel().on(EVENTS.SYNC, syncSpy);
@@ -32,7 +34,7 @@ class HTMLElement {
 // @ts-expect-error (global scope type conflicts)
 delete global.location;
 // @ts-expect-error (global scope type conflicts)
-global.location = { reload: jest.fn() };
+global.location = { reload: vi.fn() };
 // @ts-expect-error (global scope type conflicts)
 global.HTMLElement = HTMLElement;
 
@@ -51,7 +53,7 @@ const instrument = <TObj extends Record<string, any>>(obj: TObj, options: Option
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 beforeEach(() => {
-  jest.useRealTimers();
+  vi.useRealTimers();
   callSpy.mockClear();
   syncSpy.mockClear();
   forceRemountSpy.mockClear();
@@ -112,8 +114,48 @@ describe('Instrumenter', () => {
     expect(result.fn1.fn2.__originalFn__).toBe(fn1.fn2);
   });
 
+  it('patches functions correctly that reference this', () => {
+    const object = {
+      name: 'name',
+      method() {
+        return this.name;
+      },
+    };
+
+    const instrumented = instrument(object);
+    expect(object.method()).toEqual(instrumented.method());
+
+    expect(instrumented.method).toEqual(expect.any(Function));
+    expect(instrumented.method.__originalFn__).toBe(object.method);
+  });
+
+  it('patches functions correctly that use proxies', () => {
+    const object = new Proxy(
+      {
+        name: 'name',
+        method() {
+          return this.name;
+        },
+      },
+      {
+        get(target, prop, receiver) {
+          if (prop === 'name') {
+            return `${target[prop]}!`;
+          }
+          return Reflect.get(target, prop, receiver);
+        },
+      }
+    );
+
+    const instrumented = instrument(object);
+    expect(object.method()).toEqual(instrumented.method());
+
+    expect(instrumented.method).toEqual(expect.any(Function));
+    expect(instrumented.method.__originalFn__).toBe(object.method);
+  });
+
   it('patched functions call the original function when invoked', () => {
-    const { fn } = instrument({ fn: jest.fn() });
+    const { fn } = instrument({ fn: vi.fn() });
     const obj = {};
     fn('foo', obj);
     expect(fn.__originalFn__).toHaveBeenCalledWith('foo', obj);
@@ -135,6 +177,27 @@ describe('Instrumenter', () => {
         args: ['baz'],
       })
     );
+  });
+
+  it('handles circular references', () => {
+    const { fn } = instrument({ fn: (...args: any) => {} });
+    const obj = { key: 'value', obj: {}, array: [] as any[] };
+    obj.obj = obj;
+    obj.array = [obj];
+
+    expect(() => fn(obj)).not.toThrow();
+
+    expect(callSpy.mock.calls[0][0].args).toMatchInlineSnapshot(`
+      [
+        {
+          "array": [
+            "[Circular]",
+          ],
+          "key": "value",
+          "obj": "[Circular]",
+        },
+      ]
+    `);
   });
 
   it('provides metadata about the call in the event', () => {
@@ -357,20 +420,20 @@ describe('Instrumenter', () => {
 
   it('emits a "sync" event with debounce after a patched function is invoked', () => {
     const { fn } = instrument({ fn: (...args: any) => {} }, { intercept: true });
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     syncSpy.mockClear();
     fn('foo');
     fn('bar');
-    jest.runAllTimers();
+    vi.runAllTimers();
     expect(syncSpy).toHaveBeenCalledTimes(1);
   });
 
   it('sends a folded log with the "sync" event', () => {
     const { fn } = instrument({ fn: (...args: any) => ({ fn2: () => {} }) }, { intercept: true });
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     fn('foo', fn('bar')).fn2();
     fn('baz');
-    jest.runAllTimers();
+    vi.runAllTimers();
     expect(syncSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         logItems: [
@@ -381,40 +444,49 @@ describe('Instrumenter', () => {
     );
   });
 
-  it('catches thrown errors and throws an ignoredException instead', () => {
+  it('rethrows errors', () => {
     const { fn } = instrument({
       fn: () => {
         throw new Error('Boom!');
       },
     });
-    expect(fn).toThrow('ignoredException');
+    expect(fn).toThrow('Boom!');
   });
 
-  it('catches nested exceptions and throws an ignoredException instead', () => {
+  it('catches nested exceptions and rethrows', () => {
     const { fn1, fn2 } = instrument({
       fn1: (_: any) => {},
       fn2: () => {
         throw new Error('Boom!');
       },
     });
-    expect(() => fn1(fn2())).toThrow('ignoredException');
+    expect(() => fn1(fn2())).toThrow('Boom!');
   });
 
   it('bubbles child exceptions up to parent (in callback)', () => {
-    const { fn1, fn2 } = instrument({
-      fn1: jest.fn((callback: Function) => callback()),
+    const instrumented = instrument({
+      fn1: vi.fn((callback: Function) => callback()),
       fn2: () => {
         throw new Error('Boom!');
       },
     });
-    expect(() =>
+
+    vi.spyOn(instrumented, 'fn1');
+
+    const { fn1, fn2 } = instrumented;
+    let error;
+    try {
       fn1(() => {
         fn2();
-      })
-    ).toThrow('ignoredException');
+      });
+    } catch (e) {
+      error = e;
+    }
+
     expect(fn1).toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalledWith(new Error('Boom!'));
-    expect((logger.warn as any).mock.calls[0][0].callId).toBe('kind--story [0] fn1 [0] fn2');
+    expect(error).toEqual(new Error('Boom!'));
+    // @ts-expect-error callId is what is tested
+    expect(error.callId).toBe('kind--story [0] fn1 [0] fn2');
   });
 
   it("re-throws anything that isn't an error", () => {
@@ -429,7 +501,7 @@ describe('Instrumenter', () => {
   });
 
   it('does not affect intercepted methods', () => {
-    const { fn } = instrument({ fn: jest.fn() }, { intercept: true });
+    const { fn } = instrument({ fn: vi.fn() }, { intercept: true });
     fn('foo');
     expect(fn.__originalFn__).toHaveBeenCalledWith('foo');
   });
@@ -510,12 +582,12 @@ describe('Instrumenter', () => {
       expect(callSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           id: 'kind--story [0] fn',
-          exception: {
+          exception: expect.objectContaining({
             name: 'Error',
             message: 'Boom!',
             stack: expect.stringContaining('Error: Boom!'),
             callId: 'kind--story [0] fn',
-          },
+          }),
         })
       );
     });
@@ -532,14 +604,14 @@ describe('Instrumenter', () => {
     });
 
     it('defers calls to intercepted functions', () => {
-      const { fn } = instrument({ fn: jest.fn() }, { intercept: true });
+      const { fn } = instrument({ fn: vi.fn() }, { intercept: true });
       addons.getChannel().emit(EVENTS.START, { storyId });
       expect(fn()).toEqual(expect.any(Promise));
       expect(fn.__originalFn__).not.toHaveBeenCalled();
     });
 
     it('does not defer calls to non-intercepted functions', () => {
-      const { fn } = instrument({ fn: jest.fn(() => 'ok') });
+      const { fn } = instrument({ fn: vi.fn(() => 'ok') });
       addons.getChannel().emit(EVENTS.START, { storyId });
       expect(fn()).toBe('ok');
       expect(fn.__originalFn__).toHaveBeenCalled();
@@ -547,7 +619,7 @@ describe('Instrumenter', () => {
 
     it('does not defer calls to intercepted functions that are chained upon', () => {
       const { fn1 } = instrument(
-        { fn1: jest.fn(() => ({ fn2: jest.fn() as any })) },
+        { fn1: vi.fn(() => ({ fn2: vi.fn() as any })) },
         { intercept: true }
       );
       fn1().fn2();
@@ -572,10 +644,10 @@ describe('Instrumenter', () => {
     });
 
     it('steps through each interceptable function on "next"', async () => {
-      const fn = jest.fn();
+      const fn = vi.fn();
       const { fn: instrumentedFn } = instrument({ fn }, { intercept: true });
 
-      const mockedInstrumentedFn = jest.fn(instrumentedFn);
+      const mockedInstrumentedFn = vi.fn(instrumentedFn);
       const play = async () => {
         await mockedInstrumentedFn();
         await mockedInstrumentedFn();

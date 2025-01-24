@@ -1,23 +1,26 @@
-import { StoryFn, Meta, moduleMetadata } from '@storybook/angular';
-import { ChipsModule } from './angular-src/chips.module';
-import { ChipComponent } from './angular-src/chip.component';
+import { Meta, StoryFn, StoryObj, moduleMetadata } from '@storybook/angular';
 
-export default {
+import { ChipComponent } from './angular-src/chip.component';
+import { ChipsModule } from './angular-src/chips.module';
+
+const meta: Meta<ChipComponent> = {
   component: ChipComponent,
   decorators: [
     moduleMetadata({
       imports: [ChipsModule],
     }),
   ],
-} as Meta;
-
-export const Chip: StoryFn = (args) => ({
-  props: args,
-});
-
-Chip.args = {
-  displayText: 'Chip',
 };
-Chip.argTypes = {
-  removeClicked: { action: 'Remove icon clicked' },
+
+export default meta;
+
+type Story = StoryObj<ChipComponent>;
+
+export const Chip: Story = {
+  args: {
+    displayText: 'Chip',
+  },
+  argTypes: {
+    removeClicked: { action: 'Remove icon clicked' },
+  },
 };

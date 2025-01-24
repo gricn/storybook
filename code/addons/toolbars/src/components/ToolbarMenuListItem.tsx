@@ -1,36 +1,41 @@
 import React from 'react';
-import type { TooltipLinkListLink } from '@storybook/components';
-import { Icons } from '@storybook/components';
+
+import type { TooltipLinkListLink } from 'storybook/internal/components';
+import { Icons } from 'storybook/internal/components';
+
 import type { ToolbarItem } from '../types';
 
 export type ToolbarMenuListItemProps = {
   currentValue: string;
   onClick: () => void;
+  disabled?: boolean;
 } & ToolbarItem;
 
 export const ToolbarMenuListItem = ({
-  left,
   right,
   title,
   value,
   icon,
   hideIcon,
   onClick,
+  disabled,
   currentValue,
 }: ToolbarMenuListItemProps) => {
-  const Icon = icon && <Icons style={{ opacity: 1 }} icon={icon} />;
+  const Icon = icon && (
+    <Icons style={{ opacity: 1 }} icon={icon} __suppressDeprecationWarning={true} />
+  );
 
   const Item: TooltipLinkListLink = {
     id: value ?? '_reset',
     active: currentValue === value,
     right,
     title,
-    left,
+    disabled,
     onClick,
   };
 
   if (icon && !hideIcon) {
-    Item.left = Icon;
+    Item.icon = Icon;
   }
 
   return Item;

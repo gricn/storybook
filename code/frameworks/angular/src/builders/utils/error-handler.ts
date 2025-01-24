@@ -1,4 +1,5 @@
-import { logger, instance as npmLog } from '@storybook/node-logger';
+import { logger, instance as npmLog } from 'storybook/internal/node-logger';
+
 import { dedent } from 'ts-dedent';
 
 export const printErrorDetails = (error: any): void => {
@@ -12,7 +13,7 @@ export const printErrorDetails = (error: any): void => {
     } else if ((error as any).stats && (error as any).stats.compilation.errors) {
       (error as any).stats.compilation.errors.forEach((e: any) => logger.plain(e));
     } else {
-      logger.error(error);
+      logger.error(error as any);
     }
   } else if (error.compilation?.errors) {
     error.compilation.errors.forEach((e: any) => logger.plain(e));

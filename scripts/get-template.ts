@@ -1,17 +1,20 @@
-import { readdir } from 'fs/promises';
-import { pathExists, readFile } from 'fs-extra';
 import { program } from 'commander';
-import dedent from 'ts-dedent';
-import chalk from 'chalk';
+// eslint-disable-next-line depend/ban-dependencies
+import { pathExists, readFile } from 'fs-extra';
+import { readdir } from 'fs/promises';
+import picocolors from 'picocolors';
+import { dedent } from 'ts-dedent';
 import yaml from 'yaml';
+
 import {
+  type Cadence,
+  type SkippableTask,
+  type Template as TTemplate,
   allTemplates,
   templatesByCadence,
-  type Cadence,
-  type Template as TTemplate,
-  type SkippableTask,
-} from '../code/lib/cli/src/sandbox-templates';
+} from '../code/lib/cli-storybook/src/sandbox-templates';
 import { SANDBOX_DIRECTORY } from './utils/constants';
+import { esMain } from './utils/esmain';
 
 const sandboxDir = process.env.SANDBOX_ROOT || SANDBOX_DIRECTORY;
 
@@ -61,8 +64,8 @@ export async function getTemplate(
     throw new Error(dedent`Circle parallelism set incorrectly.
     
       Parallelism is set to ${total}, but there are ${
-      potentialTemplateKeys.length
-    } templates to run for the "${scriptName}" task:
+        potentialTemplateKeys.length
+      } templates to run for the "${scriptName}" task:
       ${potentialTemplateKeys.map((v) => `- ${v}`).join('\n')}
     
       ${await checkParallelism(cadence)}
@@ -81,6 +84,7 @@ const tasksMap = {
   'test-runner': 'test-runner-production',
   // 'test-runner-dev', TODO: bring this back when the task is enabled again
   bench: 'bench',
+  'vitest-integration': 'vitest-integration',
 } as const;
 
 type TaskKey = keyof typeof tasksMap;
@@ -100,7 +104,7 @@ async function checkParallelism(cadence?: Cadence, scriptName?: TaskKey) {
   let isIncorrect = false;
 
   cadences.forEach((cad) => {
-    summary.push(`\n${cad}`);
+    summary.push(`\n${picocolors.bold(cad)}`);
     const cadenceTemplates = Object.entries(allTemplates).filter(([key]) =>
       templatesByCadence[cad].includes(key as TemplateKey)
     );
@@ -109,6 +113,7 @@ async function checkParallelism(cadence?: Cadence, scriptName?: TaskKey) {
     scripts.forEach((script) => {
       const templateKeysPerScript = potentialTemplateKeys.filter((t) => {
         const currentTemplate = allTemplates[t] as Template;
+
         return (
           currentTemplate.inDevelopment !== true &&
           !currentTemplate.skipTasks?.includes(script as SkippableTask)
@@ -125,7 +130,7 @@ async function checkParallelism(cadence?: Cadence, scriptName?: TaskKey) {
 
         if (newParallelism !== currentParallelism) {
           summary.push(
-            `-- ❌ ${tasksMap[script]} - parallelism: ${currentParallelism} ${chalk.bgRed(
+            `-- ❌ ${tasksMap[script]} - parallelism: ${currentParallelism} ${picocolors.bgRed(
               `(should be ${newParallelism})`
             )}`
           );
@@ -152,6 +157,18 @@ async function checkParallelism(cadence?: Cadence, scriptName?: TaskKey) {
     summary.unshift('✅  The parallelism count is correct for all jobs in .circleci/config.yml:');
     console.log(summary.concat('\n').join('\n'));
   }
+
+  const inDevelopmentTemplates = Object.entries(allTemplates)
+    .filter(([_, t]) => t.inDevelopment)
+    .map(([k]) => k);
+
+  if (inDevelopmentTemplates.length > 0) {
+    console.log(
+      `👇 Some templates were skipped as they are flagged to be in development. Please review if they should still contain this flag:\n${inDevelopmentTemplates
+        .map((k) => `- ${k}`)
+        .join('\n')}`
+    );
+  }
 }
 
 type RunOptions = { cadence?: Cadence; task?: TaskKey; check: boolean };
@@ -167,7 +184,9 @@ async function run({ cadence, task, check }: RunOptions) {
     return;
   }
 
-  if (!cadence) throw new Error('Need to supply cadence to get template script');
+  if (!cadence) {
+    throw new Error('Need to supply cadence to get template script');
+  }
 
   const { CIRCLE_NODE_INDEX = 0, CIRCLE_NODE_TOTAL = 1 } = process.env;
 
@@ -179,7 +198,7 @@ async function run({ cadence, task, check }: RunOptions) {
   );
 }
 
-if (require.main === module) {
+if (esMain(import.meta.url)) {
   program
     .description('Retrieve the template to run for a given cadence and task')
     .option('--cadence <cadence>', 'Which cadence you want to run the script for')

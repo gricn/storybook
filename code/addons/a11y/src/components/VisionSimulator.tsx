@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react';
 import React, { useState } from 'react';
-import { Global, styled } from '@storybook/theming';
-import { Icons, IconButton, WithTooltip, TooltipLinkList } from '@storybook/components';
+
+import { IconButton, TooltipLinkList, WithTooltip } from 'storybook/internal/components';
+import { Global, styled } from 'storybook/internal/theming';
+
+import { AccessibilityIcon } from '@storybook/icons';
 
 import { Filters } from './ColorFilters';
 
@@ -144,7 +147,7 @@ export const VisionSimulator = () => {
         onDoubleClick={() => setFilter(null)}
       >
         <IconButton key="filter" active={!!filter} title="Vision simulator">
-          <Icons icon="accessibility" />
+          <AccessibilityIcon />
         </IconButton>
       </WithTooltip>
       <Hidden>

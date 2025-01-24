@@ -1,50 +1,20 @@
-/* eslint-disable no-param-reassign */
+import { dirname, join } from 'node:path';
 
-import { dirname, join } from 'path';
-import type { PresetProperty, Options } from '@storybook/types';
-import type { FrameworkOptions, StorybookConfig } from './types';
+import type { PresetProperty } from 'storybook/internal/types';
+
+import { WebpackDefinePlugin } from '@storybook/builder-webpack5';
+
+import type { StorybookConfig } from './types';
 
 const getAbsolutePath = <I extends string>(input: I): I =>
   dirname(require.resolve(join(input, 'package.json'))) as any;
 
-export const addons: PresetProperty<'addons', StorybookConfig> = [
+export const addons: PresetProperty<'addons'> = [
   getAbsolutePath('@storybook/preset-react-webpack'),
 ];
 
-const defaultFrameworkOptions: FrameworkOptions = {
-  legacyRootApi: true,
-};
-
-export const frameworkOptions = async (
-  _: never,
-  options: Options
-): Promise<StorybookConfig['framework']> => {
-  const config = await options.presets.apply<StorybookConfig['framework']>('framework');
-
-  if (typeof config === 'string') {
-    return {
-      name: config,
-      options: defaultFrameworkOptions,
-    };
-  }
-  if (typeof config === 'undefined') {
-    return {
-      name: getAbsolutePath('@storybook/react-webpack5'),
-      options: defaultFrameworkOptions,
-    };
-  }
-
-  return {
-    name: config.name,
-    options: {
-      ...defaultFrameworkOptions,
-      ...config.options,
-    },
-  };
-};
-
-export const core: PresetProperty<'core', StorybookConfig> = async (config, options) => {
-  const framework = await options.presets.apply<StorybookConfig['framework']>('framework');
+export const core: PresetProperty<'core'> = async (config, options) => {
+  const framework = await options.presets.apply('framework');
 
   return {
     ...config,
@@ -56,12 +26,23 @@ export const core: PresetProperty<'core', StorybookConfig> = async (config, opti
   };
 };
 
-export const webpack: StorybookConfig['webpack'] = async (config) => {
+export const webpack: StorybookConfig['webpack'] = async (config, options) => {
   config.resolve = config.resolve || {};
 
   config.resolve.alias = {
     ...config.resolve?.alias,
     '@storybook/react': getAbsolutePath('@storybook/react'),
   };
+
+  if (options.features?.developmentModeForBuild) {
+    config.plugins = [
+      // @ts-expect-error Ignore this error, because in the `webpack` preset the user actually hasn't defined a config yet.
+      ...config.plugins,
+      new WebpackDefinePlugin({
+        NODE_ENV: JSON.stringify('development'),
+      }),
+    ];
+  }
+
   return config;
 };

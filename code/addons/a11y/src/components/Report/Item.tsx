@@ -1,16 +1,16 @@
 import React, { Fragment, useState } from 'react';
 
-import { styled } from '@storybook/theming';
-import { Icons } from '@storybook/components';
+import { styled } from 'storybook/internal/theming';
+
+import { ChevronSmallDownIcon } from '@storybook/icons';
 
 import type { Result } from 'axe-core';
-import { Info } from './Info';
-
-import { Elements } from './Elements';
-import { Tags } from './Tags';
 
 import type { RuleType } from '../A11YPanel';
+import { Elements } from './Elements';
 import HighlightToggle from './HighlightToggle';
+import { Info } from './Info';
+import { Tags } from './Tags';
 
 const Wrapper = styled.div(({ theme }) => ({
   display: 'flex',
@@ -21,16 +21,11 @@ const Wrapper = styled.div(({ theme }) => ({
   },
 }));
 
-const Icon = styled(Icons)(({ theme }) => ({
-  height: 10,
-  width: 10,
-  minWidth: 10,
-  color: theme.textMutedColor,
+const Icon = styled(ChevronSmallDownIcon)({
   marginRight: 10,
   transition: 'transform 0.1s ease-in-out',
-  alignSelf: 'center',
-  display: 'inline-flex',
-}));
+  verticalAlign: 'inherit',
+});
 
 const HeaderBar = styled.div(({ theme }) => ({
   padding: theme.layoutMargin,
@@ -77,8 +72,6 @@ export const Item = (props: ItemProps) => {
       <Wrapper>
         <HeaderBar onClick={() => onToggle(!open)} role="button">
           <Icon
-            icon="arrowdown"
-            color="#9DA5AB"
             style={{
               transform: `rotate(${open ? 0 : -90}deg)`,
             }}

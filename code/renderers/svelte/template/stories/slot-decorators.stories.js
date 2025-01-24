@@ -1,7 +1,7 @@
-import ButtonView from './views/ButtonView.svelte';
-import BorderDecoratorRed from './views/BorderDecoratorRed.svelte';
 import BorderDecoratorBlue from './views/BorderDecoratorBlue.svelte';
 import BorderDecoratorProps from './views/BorderDecoratorProps.svelte';
+import BorderDecoratorRed from './views/BorderDecoratorRed.svelte';
+import ButtonView from './views/ButtonJavaScript.svelte';
 
 export default {
   component: ButtonView,
@@ -9,6 +9,7 @@ export default {
   args: {
     primary: true,
   },
+  tags: ['autodocs'],
 };
 
 export const WithDefaultRedBorder = {};

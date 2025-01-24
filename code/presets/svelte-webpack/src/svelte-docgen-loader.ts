@@ -1,14 +1,34 @@
+import { readFile } from 'node:fs/promises';
+import { basename } from 'node:path';
+
+import { logger } from 'storybook/internal/node-logger';
+
+import { preprocess } from 'svelte/compiler';
 import svelteDoc from 'sveltedoc-parser';
 import { dedent } from 'ts-dedent';
-import * as path from 'path';
-import * as fs from 'fs';
-import { preprocess } from 'svelte/compiler';
-import { logger } from '@storybook/node-logger';
+
+/*
+ * Patch sveltedoc-parser internal options.
+ * Waiting for a fix for https://github.com/alexprey/sveltedoc-parser/issues/87
+ */
+const svelteDocParserOptions = require('sveltedoc-parser/lib/options.js');
+
+svelteDocParserOptions.getAstDefaultOptions = () => ({
+  range: true,
+  loc: true,
+  comment: true,
+  tokens: true,
+  ecmaVersion: 12,
+  sourceType: 'module',
+  ecmaFeatures: {},
+});
 
 // From https://github.com/sveltejs/svelte/blob/8db3e8d0297e052556f0b6dde310ef6e197b8d18/src/compiler/compile/utils/get_name_from_filename.ts
 // Copied because it is not exported from the compiler
 function getNameFromFilename(filename: string) {
-  if (!filename) return null;
+  if (!filename) {
+    return null;
+  }
 
   const parts = filename.split(/[/\\]/).map(encodeURI);
 
@@ -43,8 +63,9 @@ function getNameFromFilename(filename: string) {
 }
 
 /**
- * webpack loader for sveltedoc-parser
- * @param source raw svelte component
+ * Webpack loader for `sveltedoc-parser`
+ *
+ * @param source Raw svelte component
  */
 export default async function svelteDocgen(this: any, source: string) {
   // eslint-disable-next-line no-underscore-dangle
@@ -55,7 +76,7 @@ export default async function svelteDocgen(this: any, source: string) {
 
   let docOptions;
   if (preprocessOptions) {
-    const src = fs.readFileSync(resource).toString();
+    const src = await readFile(resource).toString();
 
     const { code: fileContent } = await preprocess(src, preprocessOptions);
     docOptions = {
@@ -73,27 +94,30 @@ export default async function svelteDocgen(this: any, source: string) {
 
   let docgen = '';
 
+  let componentDoc: any;
   try {
     // FIXME
     // @ts-expect-error (Converted from ts-ignore)
-    const componentDoc = await svelteDoc.parse(options);
-
-    // get filename for source content
-    const file = path.basename(resource);
-
-    // populate filename in docgen
-    componentDoc.name = path.basename(file);
-
-    const componentName = getNameFromFilename(resource);
-
-    docgen = dedent`
-      ${componentName}.__docgen = ${JSON.stringify(componentDoc)};
-    `;
+    componentDoc = await svelteDoc.parse(options);
   } catch (error) {
+    componentDoc = { keywords: [], data: [] };
     if (logDocgen) {
       logger.error(error as any);
     }
   }
+
+  // get filename for source content
+  const file = basename(resource);
+
+  // populate filename in docgen
+  componentDoc.name = basename(file);
+
+  const componentName = getNameFromFilename(resource);
+
+  docgen = dedent`
+      ${componentName}.__docgen = ${JSON.stringify(componentDoc)};
+    `;
+
   // inject __docgen prop in svelte component
   const output = source + docgen;
 

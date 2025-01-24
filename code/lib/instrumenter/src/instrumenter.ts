@@ -1,18 +1,21 @@
 /* eslint-disable no-underscore-dangle */
-import type { Channel } from '@storybook/channels';
-import { addons } from '@storybook/preview-api';
-import type { StoryId } from '@storybook/types';
-import { once, logger } from '@storybook/client-logger';
+import type { Channel } from 'storybook/internal/channels';
+import { once } from 'storybook/internal/client-logger';
 import {
   FORCE_REMOUNT,
-  IGNORED_EXCEPTION,
   SET_CURRENT_STORY,
   STORY_RENDER_PHASE_CHANGED,
-} from '@storybook/core-events';
+} from 'storybook/internal/core-events';
+import { addons } from 'storybook/internal/preview-api';
+import type { StoryId } from 'storybook/internal/types';
+
 import { global } from '@storybook/global';
+
+import { processError } from '@vitest/utils/error';
 
 import type { Call, CallRef, ControlStates, LogItem, Options, State, SyncPayload } from './types';
 import { CallStates } from './types';
+import './typings.d.ts';
 
 export const EVENTS = {
   CALL: 'storybook/instrumenter/call',
@@ -24,8 +27,8 @@ export const EVENTS = {
   END: 'storybook/instrumenter/end',
 };
 
-type PatchedObj<TObj> = {
-  [Property in keyof TObj]: TObj[Property] & { __originalFn__: PatchedObj<TObj> };
+type PatchedObj<TObj extends Record<string, unknown>> = {
+  [Property in keyof TObj]: TObj[Property] & { __originalFn__: TObj[Property] };
 };
 
 const controlsDisabled: ControlStates = {
@@ -45,11 +48,18 @@ const isObject = (o: unknown): o is object =>
 const isModule = (o: unknown): o is NodeModule =>
   Object.prototype.toString.call(o) === '[object Module]';
 const isInstrumentable = (o: unknown) => {
-  if (!isObject(o) && !isModule(o)) return false;
-  if (o.constructor === undefined) return true;
+  if (!isObject(o) && !isModule(o)) {
+    return false;
+  }
+
+  if (o.constructor === undefined) {
+    return true;
+  }
   const proto = o.constructor.prototype;
-  if (!isObject(proto)) return false;
-  if (Object.prototype.hasOwnProperty.call(proto, 'isPrototypeOf') === false) return false;
+
+  if (!isObject(proto)) {
+    return false;
+  }
   return true;
 };
 
@@ -79,16 +89,17 @@ const getInitialState = (): State => ({
 
 const getRetainedState = (state: State, isDebugging = false) => {
   const calls = (isDebugging ? state.shadowCalls : state.calls).filter((call) => call.retain);
-  if (!calls.length) return undefined;
+
+  if (!calls.length) {
+    return undefined;
+  }
   const callRefsByResult = new Map(
     Array.from(state.callRefsByResult.entries()).filter(([, ref]) => ref.retain)
   );
   return { cursor: calls.length, calls, callRefsByResult };
 };
 
-/**
- * This class is not supposed to be used directly. Use the `instrument` function below instead.
- */
+/** This class is not supposed to be used directly. Use the `instrument` function below instead. */
 export class Instrumenter {
   channel: Channel;
 
@@ -102,7 +113,7 @@ export class Instrumenter {
 
     // Restore state from the parent window in case the iframe was reloaded.
     // @ts-expect-error (TS doesn't know about this global variable)
-    this.state = global.window.parent.__STORYBOOK_ADDON_INTERACTIONS_INSTRUMENTER_STATE__ || {};
+    this.state = global.window?.parent.__STORYBOOK_ADDON_INTERACTIONS_INSTRUMENTER_STATE__ || {};
 
     // When called from `start`, isDebugging will be true.
     const resetState = ({
@@ -157,8 +168,11 @@ export class Instrumenter {
 
     // Trash non-retained state and clear the log when switching stories, but not on initial boot.
     this.channel.on(SET_CURRENT_STORY, () => {
-      if (this.initialized) this.cleanup();
-      else this.initialized = true;
+      if (this.initialized) {
+        this.cleanup();
+      } else {
+        this.initialized = true;
+      }
     });
 
     const start = ({ storyId, playUntil }: { storyId: string; playUntil?: Call['id'] }) => {
@@ -174,12 +188,14 @@ export class Instrumenter {
 
       const log = this.getLog(storyId);
       this.setState(storyId, ({ shadowCalls }) => {
-        if (playUntil || !log.length) return { playUntil };
+        if (playUntil || !log.length) {
+          return { playUntil };
+        }
         const firstRowIndex = shadowCalls.findIndex((call) => call.id === log[0].callId);
         return {
           playUntil: shadowCalls
             .slice(0, firstRowIndex)
-            .filter((call) => call.interceptable && !call.ancestors.length)
+            .filter((call) => call.interceptable && !call.ancestors?.length)
             .slice(-1)[0]?.id,
         };
       });
@@ -189,9 +205,11 @@ export class Instrumenter {
     };
 
     const back = ({ storyId }: { storyId: string }) => {
-      const log = this.getLog(storyId).filter((call) => !call.ancestors.length);
+      const log = this.getLog(storyId).filter((call) => !call.ancestors?.length);
       const last = log.reduceRight((res, item, index) => {
-        if (res >= 0 || item.status === CallStates.WAITING) return res;
+        if (res >= 0 || item.status === CallStates.WAITING) {
+          return res;
+        }
         return index;
       }, -1);
       start({ storyId, playUntil: log[last - 1]?.callId });
@@ -203,7 +221,10 @@ export class Instrumenter {
       const shadowCall = shadowCalls.find(({ id }) => id === callId);
       if (!call && shadowCall && Object.values(resolvers).length > 0) {
         const nextId = this.getLog(storyId).find((c) => c.status === CallStates.WAITING)?.callId;
-        if (shadowCall.id !== nextId) this.setState(storyId, { playUntil: shadowCall.id });
+
+        if (shadowCall.id !== nextId) {
+          this.setState(storyId, { playUntil: shadowCall.id });
+        }
         Object.values(resolvers).forEach((resolve) => resolve());
       } else {
         start({ storyId, playUntil: callId });
@@ -216,8 +237,12 @@ export class Instrumenter {
         Object.values(resolvers).forEach((resolve) => resolve());
       } else {
         const nextId = this.getLog(storyId).find((c) => c.status === CallStates.WAITING)?.callId;
-        if (nextId) start({ storyId, playUntil: nextId });
-        else end({ storyId });
+
+        if (nextId) {
+          start({ storyId, playUntil: nextId });
+        } else {
+          end({ storyId });
+        }
       }
     };
 
@@ -242,22 +267,32 @@ export class Instrumenter {
     const patch = typeof update === 'function' ? update(state) : update;
     this.state = { ...this.state, [storyId]: { ...state, ...patch } };
     // Track state on the parent window so we can reload the iframe without losing state.
-    // @ts-expect-error (TS doesn't know about this global variable)
-    global.window.parent.__STORYBOOK_ADDON_INTERACTIONS_INSTRUMENTER_STATE__ = this.state;
+    if (global.window?.parent) {
+      // @ts-expect-error fix this later in d.ts file
+      global.window.parent.__STORYBOOK_ADDON_INTERACTIONS_INSTRUMENTER_STATE__ = this.state;
+    }
   }
 
   cleanup() {
     // Reset stories with retained state to their initial state, and drop the rest.
-    this.state = Object.entries(this.state).reduce((acc, [storyId, state]) => {
-      const retainedState = getRetainedState(state);
-      if (!retainedState) return acc;
-      acc[storyId] = Object.assign(getInitialState(), retainedState);
-      return acc;
-    }, {} as Record<StoryId, State>);
+    this.state = Object.entries(this.state).reduce(
+      (acc, [storyId, state]) => {
+        const retainedState = getRetainedState(state);
+
+        if (!retainedState) {
+          return acc;
+        }
+        acc[storyId] = Object.assign(getInitialState(), retainedState);
+        return acc;
+      },
+      {} as Record<StoryId, State>
+    );
     const payload: SyncPayload = { controlStates: controlsDisabled, logItems: [] };
     this.channel.emit(EVENTS.SYNC, payload);
-    // @ts-expect-error (TS doesn't know about this global variable)
-    global.window.parent.__STORYBOOK_ADDON_INTERACTIONS_INSTRUMENTER_STATE__ = this.state;
+    if (global.window?.parent) {
+      // @ts-expect-error fix this later in d.ts file
+      global.window.parent.__STORYBOOK_ADDON_INTERACTIONS_INSTRUMENTER_STATE__ = this.state;
+    }
   }
 
   getLog(storyId: string): LogItem[] {
@@ -290,28 +325,48 @@ export class Instrumenter {
   // Traverses the object structure to recursively patch all function properties.
   // Returns the original object, or a new object with the same constructor,
   // depending on whether it should mutate.
-  instrument<TObj extends { [x: string]: any }>(obj: TObj, options: Options): PatchedObj<TObj> {
-    if (!isInstrumentable(obj)) return obj;
+  instrument<TObj extends Record<string, unknown>>(
+    obj: TObj,
+    options: Options,
+    depth = 0
+  ): PatchedObj<TObj> {
+    if (!isInstrumentable(obj)) {
+      return obj as PatchedObj<TObj>;
+    }
 
     const { mutate = false, path = [] } = options;
-    return Object.keys(obj).reduce(
+
+    const keys = options.getKeys ? options.getKeys(obj, depth) : Object.keys(obj);
+    depth += 1;
+    return keys.reduce(
       (acc, key) => {
+        const descriptor = getPropertyDescriptor(obj, key);
+        if (typeof descriptor?.get === 'function') {
+          const getter = () => descriptor?.get?.bind(obj)?.();
+          Object.defineProperty(acc, key, {
+            get: () => {
+              return this.instrument(getter(), { ...options, path: path.concat(key) }, depth);
+            },
+          });
+          return acc;
+        }
+
         const value = (obj as Record<string, any>)[key];
 
         // Nothing to patch, but might be instrumentable, so we recurse
         if (typeof value !== 'function') {
-          acc[key] = this.instrument(value, { ...options, path: path.concat(key) });
+          acc[key] = this.instrument(value, { ...options, path: path.concat(key) }, depth);
           return acc;
         }
 
         // Already patched, so we pass through unchanged
-        if (typeof value.__originalFn__ === 'function') {
+        if ('__originalFn__' in value && typeof value.__originalFn__ === 'function') {
           acc[key] = value;
           return acc;
         }
 
         // Patch the function and mark it "patched" by adding a reference to the original function
-        acc[key] = (...args: any[]) => this.track(key, value, args, options);
+        acc[key] = (...args: any[]) => this.track(key, value, obj, args, options);
         acc[key].__originalFn__ = value;
 
         // Reuse the original name as the patched function's name
@@ -321,7 +376,7 @@ export class Instrumenter {
         if (Object.keys(value).length > 0) {
           Object.assign(
             acc[key],
-            this.instrument({ ...value }, { ...options, path: path.concat(key) })
+            this.instrument({ ...value }, { ...options, path: path.concat(key) }, depth)
           );
         }
 
@@ -334,7 +389,13 @@ export class Instrumenter {
   // Monkey patch an object method to record calls.
   // Returns a function that invokes the original function, records the invocation ("call") and
   // returns the original result.
-  track(method: string, fn: Function, args: any[], options: Options) {
+  track(
+    method: string,
+    fn: Function,
+    object: Record<string, unknown>,
+    args: any[],
+    options: Options
+  ) {
     const storyId: StoryId =
       args?.[0]?.__storyId__ || global.__STORYBOOK_PREVIEW__?.selectionStore?.selection?.storyId;
     const { cursor, ancestors } = this.getState(storyId);
@@ -344,11 +405,11 @@ export class Instrumenter {
     const interceptable = typeof intercept === 'function' ? intercept(method, path) : intercept;
     const call = { id, cursor, storyId, ancestors, path, method, args, interceptable, retain };
     const interceptOrInvoke = interceptable && !ancestors.length ? this.intercept : this.invoke;
-    const result = interceptOrInvoke.call(this, fn, call, options);
+    const result = interceptOrInvoke.call(this, fn, object, call, options);
     return this.instrument(result, { ...options, mutate: true, path: [{ __callId__: call.id }] });
   }
 
-  intercept(fn: Function, call: Call, options: Options) {
+  intercept(fn: Function, object: Record<string, unknown>, call: Call, options: Options) {
     const { chainedCallIds, isDebugging, playUntil } = this.getState(call.storyId);
 
     // For a "jump to step" action, continue playing until we hit a call by that ID.
@@ -358,7 +419,7 @@ export class Instrumenter {
       if (playUntil === call.id) {
         this.setState(call.storyId, { playUntil: undefined });
       }
-      return this.invoke(fn, call, options);
+      return this.invoke(fn, object, call, options);
     }
 
     // Instead of invoking the function, defer the function call until we continue playing.
@@ -373,24 +434,32 @@ export class Instrumenter {
         const { [call.id]: _, ...resolvers } = state.resolvers;
         return { isLocked: true, resolvers };
       });
-      return this.invoke(fn, call, options);
+      return this.invoke(fn, object, call, options);
     });
   }
 
-  invoke(fn: Function, call: Call, options: Options) {
-    // TODO this doesnt work because the abortSignal we have here is the newly created one
-    // const { abortSignal } = global.window.__STORYBOOK_PREVIEW__ || {};
-    // if (abortSignal && abortSignal.aborted) throw IGNORED_EXCEPTION;
-
+  invoke(fn: Function, object: Record<string, unknown>, call: Call, options: Options) {
     const { callRefsByResult, renderPhase } = this.getState(call.storyId);
 
-    // Map complex values to a JSON-serializable representation.
-    const serializeValues = (value: any): any => {
+    // TODO This function should not needed anymore, as the channel already serializes values with telejson
+    // Possibly we need to add HTMLElement support to telejson though
+    // Keeping this function here, as removing it means we need to refactor the deserializing that happens in addon-interactions
+    const maximumDepth = 25; // mimicks the max depth of telejson
+    const serializeValues = (value: any, depth: number, seen: unknown[]): any => {
+      if (seen.includes(value)) {
+        return '[Circular]';
+      }
+      seen = [...seen, value];
+
+      if (depth > maximumDepth) {
+        return '...';
+      }
+
       if (callRefsByResult.has(value)) {
         return callRefsByResult.get(value);
       }
       if (value instanceof Array) {
-        return value.map(serializeValues);
+        return value.map((it) => serializeValues(it, ++depth, seen));
       }
       if (value instanceof Date) {
         return { __date__: { value: value.toISOString() } };
@@ -403,13 +472,15 @@ export class Instrumenter {
         const { flags, source } = value;
         return { __regexp__: { flags, source } };
       }
-      if (value instanceof global.window.HTMLElement) {
+      if (value instanceof global.window?.HTMLElement) {
         const { prefix, localName, id, classList, innerText } = value;
         const classNames = Array.from(classList);
         return { __element__: { prefix, localName, id, classNames, innerText } };
       }
       if (typeof value === 'function') {
-        return { __function__: { name: value.name } };
+        return {
+          __function__: { name: 'getMockName' in value ? value.getMockName() : value.name },
+        };
       }
       if (typeof value === 'symbol') {
         return { __symbol__: { description: value.description } };
@@ -423,13 +494,16 @@ export class Instrumenter {
       }
       if (Object.prototype.toString.call(value) === '[object Object]') {
         return Object.fromEntries(
-          Object.entries(value).map(([key, val]) => [key, serializeValues(val)])
+          Object.entries(value).map(([key, val]) => [key, serializeValues(val, ++depth, seen)])
         );
       }
       return value;
     };
 
-    const info: Call = { ...call, args: call.args.map(serializeValues) };
+    const info: Call = {
+      ...call,
+      args: call.args.map((arg) => serializeValues(arg, 0, [])),
+    };
 
     // Mark any ancestor calls as "chained upon" so we won't attempt to defer it later.
     call.path.forEach((ref: any) => {
@@ -443,7 +517,16 @@ export class Instrumenter {
     const handleException = (e: any) => {
       if (e instanceof Error) {
         const { name, message, stack, callId = call.id } = e as Error & { callId: Call['id'] };
-        const exception = { name, message, stack, callId };
+
+        // This will calculate the diff for chai errors
+        const {
+          showDiff = undefined,
+          diff = undefined,
+          actual = undefined,
+          expected = undefined,
+        } = e.name === 'AssertionError' ? processError(e) : e;
+
+        const exception = { name, message, stack, callId, showDiff, diff, actual, expected };
         this.update({ ...info, status: CallStates.ERROR, exception });
 
         // Always track errors to their originating call.
@@ -455,18 +538,11 @@ export class Instrumenter {
         }));
 
         // Exceptions inside callbacks should bubble up to the parent call.
-        if (call.ancestors.length) {
+        if (call.ancestors?.length) {
           if (!Object.prototype.hasOwnProperty.call(e, 'callId')) {
             Object.defineProperty(e, 'callId', { value: call.id });
           }
           throw e;
-        }
-
-        // We need to throw to break out of the play function, but we don't want to trigger a redbox
-        // so we throw an ignoredException, which is caught and silently ignored by Storybook.
-        if (e !== alreadyCompletedException) {
-          logger.warn(e);
-          throw IGNORED_EXCEPTION;
         }
       }
       throw e;
@@ -486,7 +562,11 @@ export class Instrumenter {
       // This is picked up in the `track` function and used for call metadata.
       const finalArgs = actualArgs.map((arg: any) => {
         // We only want to wrap plain functions, not objects.
-        if (typeof arg !== 'function' || Object.keys(arg).length) return arg;
+
+        // We only want to wrap plain functions, not objects.
+        if (typeof arg !== 'function' || Object.keys(arg).length) {
+          return arg;
+        }
 
         return (...args: any) => {
           // Set the cursor and ancestors for calls that happen inside the callback.
@@ -505,12 +585,14 @@ export class Instrumenter {
             }
             return res;
           } finally {
-            if (!willRestore) restore();
+            if (!willRestore) {
+              restore();
+            }
           }
         };
       });
 
-      const result = fn(...finalArgs);
+      const result = fn.apply(object, finalArgs);
 
       // Track the result so we can trace later uses of it back to the originating call.
       // Primitive results (undefined, null, boolean, string, number, BigInt) are ignored.
@@ -545,7 +627,7 @@ export class Instrumenter {
   update(call: Call) {
     this.channel.emit(EVENTS.CALL, call);
     this.setState(call.storyId, ({ calls }) => {
-      // Omit earlier calls for the same ID, which may have been superceded by a later invocation.
+      // Omit earlier calls for the same ID, which may have been superseded by a later invocation.
       // This typically happens when calls are part of a callback which runs multiple times.
       const callsById = calls
         .concat(call)
@@ -600,10 +682,10 @@ export class Instrumenter {
 }
 
 /**
- * Instruments an object or module by traversing its properties, patching any functions (methods)
- * to enable debugging. Patched functions will emit a `call` event when invoked.
- * When intercept = true, patched functions will return a Promise when the debugger stops before
- * this function. As such, "interceptable" functions will have to be `await`-ed.
+ * Instruments an object or module by traversing its properties, patching any functions (methods) to
+ * enable debugging. Patched functions will emit a `call` event when invoked. When intercept = true,
+ * patched functions will return a Promise when the debugger stops before this function. As such,
+ * "interceptable" functions will have to be `await`-ed.
  */
 export function instrument<TObj extends Record<string, any>>(
   obj: TObj,
@@ -613,27 +695,39 @@ export function instrument<TObj extends Record<string, any>>(
     let forceInstrument = false;
     let skipInstrument = false;
 
-    if (global.window.location?.search?.includes('instrument=true')) {
+    if (global.window?.location?.search?.includes('instrument=true')) {
       forceInstrument = true;
-    } else if (global.window.location?.search?.includes('instrument=false')) {
+    } else if (global.window?.location?.search?.includes('instrument=false')) {
       skipInstrument = true;
     }
 
     // Don't do any instrumentation if not loaded in an iframe unless it's forced - instrumentation can also be skipped.
-    if ((global.window.parent === global.window && !forceInstrument) || skipInstrument) {
+    if ((global.window?.parent === global.window && !forceInstrument) || skipInstrument) {
       return obj;
     }
 
     // Only create an instance if we don't have one (singleton) yet.
-    if (!global.window.__STORYBOOK_ADDON_INTERACTIONS_INSTRUMENTER__) {
+    if (global.window && !global.window.__STORYBOOK_ADDON_INTERACTIONS_INSTRUMENTER__) {
       global.window.__STORYBOOK_ADDON_INTERACTIONS_INSTRUMENTER__ = new Instrumenter();
     }
 
-    const instrumenter: Instrumenter = global.window.__STORYBOOK_ADDON_INTERACTIONS_INSTRUMENTER__;
+    const instrumenter: Instrumenter = global.window?.__STORYBOOK_ADDON_INTERACTIONS_INSTRUMENTER__;
     return instrumenter.instrument(obj, options);
   } catch (e) {
     // Access to the parent window might fail due to CORS restrictions.
     once.warn(e);
     return obj;
   }
+}
+
+function getPropertyDescriptor<T>(obj: T, propName: keyof T) {
+  let target = obj;
+  while (target != null) {
+    const descriptor = Object.getOwnPropertyDescriptor(target, propName);
+    if (descriptor) {
+      return descriptor;
+    }
+    target = Object.getPrototypeOf(target);
+  }
+  return undefined;
 }

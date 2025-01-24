@@ -1,5 +1,6 @@
+import type { PartialStoryFn, StoryContext } from 'storybook/internal/types';
+
 import { global as globalThis } from '@storybook/global';
-import type { PartialStoryFn, StoryContext } from '@storybook/types';
 
 export default {
   component: globalThis.Components.Pre,
@@ -26,8 +27,8 @@ export default {
       control: { type: 'radio', options: ['a', 'b', 'c'], labels: ['alpha', 'beta', 'gamma'] },
     },
     inlineRadio: { control: { type: 'inline-radio', options: ['a', 'b', 'c'] } },
-    select: { control: { type: 'select', options: ['a', 'b', 'c'] } },
-    multiSelect: { control: { type: 'multi-select', options: ['a', 'b', 'c'] } },
+    select: { control: 'select', options: ['a', 'b', 'c', 'double  space'] },
+    multiSelect: { control: { type: 'multi-select' }, options: ['a', 'b', 'c', 'double  space'] },
     range: { control: 'range' },
     rangeCustom: { control: { type: 'range', min: 0, max: 1000, step: 100 } },
     text: { control: 'text' },
@@ -78,6 +79,5 @@ export const Defined = {
 //   parameters: {
 //     docs: { disable: true },
 //     chromatic: { disable: true },
-//     storyshots: { disable: true },
 //   },
 // };

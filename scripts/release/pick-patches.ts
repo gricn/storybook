@@ -1,12 +1,13 @@
-/* eslint-disable no-console */
-/* eslint-disable no-await-in-loop */
-import program from 'commander';
-import chalk from 'chalk';
-import ora from 'ora';
 import { setOutput } from '@actions/core';
+import { program } from 'commander';
+// eslint-disable-next-line depend/ban-dependencies
+import ora from 'ora';
+import picocolors from 'picocolors';
+import invariant from 'tiny-invariant';
+
+import { esMain } from '../utils/esmain';
 import { git } from './utils/git-client';
 import { getUnpickedPRs } from './utils/github-client';
-import invariant from 'tiny-invariant';
 
 program.name('pick-patches').description('Cherry pick patch PRs back to main');
 
@@ -25,7 +26,7 @@ interface PR {
 }
 
 function formatPR(pr: PR): string {
-  return `https://github.com/${OWNER}/${REPO}/pull/${pr.number} "${pr.title}" ${chalk.yellow(
+  return `https://github.com/${OWNER}/${REPO}/pull/${pr.number} "${pr.title}" ${picocolors.yellow(
     pr.mergeCommit
   )}`;
 }
@@ -50,7 +51,6 @@ export const run = async (_: unknown) => {
 
   const failedCherryPicks: string[] = [];
 
-  // eslint-disable-next-line no-restricted-syntax
   for (const pr of patchPRs) {
     const prSpinner = ora(`Cherry picking #${pr.number}`).start();
 
@@ -72,7 +72,7 @@ export const run = async (_: unknown) => {
       }
       failedCherryPicks.push(pr.mergeCommit);
       prSpinner.info(
-        `This PR can be picked manually with: ${chalk.grey(
+        `This PR can be picked manually with: ${picocolors.gray(
           `git cherry-pick -m1 -x ${pr.mergeCommit}`
         )}`
       );
@@ -80,11 +80,12 @@ export const run = async (_: unknown) => {
   }
 
   if (process.env.GITHUB_ACTIONS === 'true') {
+    setOutput('no-patch-prs', patchPRs.length === 0);
     setOutput('failed-cherry-picks', JSON.stringify(failedCherryPicks));
   }
 };
 
-if (require.main === module) {
+if (esMain(import.meta.url)) {
   const options = program.parse(process.argv);
   run(options).catch((err) => {
     console.error(err);

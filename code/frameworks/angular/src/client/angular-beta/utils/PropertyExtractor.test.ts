@@ -7,17 +7,22 @@ import {
   provideAnimations,
   provideNoopAnimations,
 } from '@angular/platform-browser/animations';
+import { describe, expect, it, vi } from 'vitest';
+
 import { NgModuleMetadata } from '../../types';
-import { PropertyExtractor, REMOVED_MODULES } from './PropertyExtractor';
 import { WithOfficialModule } from '../__testfixtures__/test.module';
+import { PropertyExtractor } from './PropertyExtractor';
 
 const TEST_TOKEN = new InjectionToken('testToken');
 const TestTokenProvider = { provide: TEST_TOKEN, useValue: 123 };
 const TestService = Injectable()(class {});
-const TestComponent1 = Component({})(class {});
-const TestComponent2 = Component({})(class {});
-const StandaloneTestComponent = Component({ standalone: true })(class {});
-const TestDirective = Directive({})(class {});
+const TestComponent1 = Component({ standalone: false })(class {});
+const TestComponent2 = Component({ standalone: false })(class {});
+const StandaloneTestComponent = Component({})(class {});
+const StandaloneTestDirective = Directive({})(class {});
+const MixedTestComponent1 = Component({})(class extends StandaloneTestComponent {});
+const MixedTestComponent2 = Component({ standalone: false })(class extends MixedTestComponent1 {});
+const MixedTestComponent3 = Component({})(class extends MixedTestComponent2 {});
 const TestModuleWithDeclarations = NgModule({ declarations: [TestComponent1] })(class {});
 const TestModuleWithImportsAndProviders = NgModule({
   imports: [TestModuleWithDeclarations],
@@ -45,7 +50,7 @@ const extractApplicationProviders = (metadata: NgModuleMetadata, component?: any
 };
 
 describe('PropertyExtractor', () => {
-  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
 
   describe('analyzeMetadata', () => {
     it('should remove BrowserModule', () => {
@@ -118,6 +123,20 @@ describe('PropertyExtractor', () => {
         StandaloneTestComponent,
       ]);
     });
+
+    it('should return standalone directives', () => {
+      const imports = extractImports(
+        {
+          imports: [TestModuleWithImportsAndProviders],
+        },
+        StandaloneTestDirective
+      );
+      expect(imports).toEqual([
+        CommonModule,
+        TestModuleWithImportsAndProviders,
+        StandaloneTestDirective,
+      ]);
+    });
   });
 
   describe('extractDeclarations', () => {
@@ -135,6 +154,21 @@ describe('PropertyExtractor', () => {
 
     it('isStandalone should be true', () => {
       const { isStandalone } = PropertyExtractor.analyzeDecorators(StandaloneTestComponent);
+      expect(isStandalone).toBe(true);
+    });
+
+    it('isStandalone should be true', () => {
+      const { isStandalone } = PropertyExtractor.analyzeDecorators(MixedTestComponent1);
+      expect(isStandalone).toBe(true);
+    });
+
+    it('isStandalone should be false', () => {
+      const { isStandalone } = PropertyExtractor.analyzeDecorators(MixedTestComponent2);
+      expect(isStandalone).toBe(false);
+    });
+
+    it('isStandalone should be true', () => {
+      const { isStandalone } = PropertyExtractor.analyzeDecorators(MixedTestComponent3);
       expect(isStandalone).toBe(true);
     });
   });

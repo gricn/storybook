@@ -1,19 +1,14 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 
-import { styled } from '@storybook/theming';
+import { ActionBar, ScrollArea } from 'storybook/internal/components';
+import { styled } from 'storybook/internal/theming';
 
-import { ActionBar, Icons, ScrollArea } from '@storybook/components';
-
-import type { AxeResults } from 'axe-core';
-import { useChannel, useParameter, useStorybookState } from '@storybook/manager-api';
-
-import { Report } from './Report';
-
-import { Tabs } from './Tabs';
+import { CheckIcon, SyncIcon } from '@storybook/icons';
 
 import { useA11yContext } from './A11yContext';
-import { EVENTS } from '../constants';
-import type { A11yParameters } from '../params';
+import { Report } from './Report';
+import { Tabs } from './Tabs';
+import { TestDiscrepancyMessage } from './TestDiscrepancyMessage';
 
 export enum RuleType {
   VIOLATION,
@@ -21,9 +16,7 @@ export enum RuleType {
   INCOMPLETION,
 }
 
-const Icon = styled(Icons)({
-  height: 12,
-  width: 12,
+const Icon = styled(SyncIcon)({
   marginRight: 4,
 });
 
@@ -50,51 +43,8 @@ const Centered = styled.span({
   height: '100%',
 });
 
-type Status = 'initial' | 'manual' | 'running' | 'error' | 'ran' | 'ready';
-
 export const A11YPanel: React.FC = () => {
-  const { manual } = useParameter<Pick<A11yParameters, 'manual'>>('a11y', {
-    manual: false,
-  });
-  const [status, setStatus] = useState<Status>(manual ? 'manual' : 'initial');
-  const [error, setError] = React.useState<unknown>(undefined);
-  const { setResults, results } = useA11yContext();
-  const { storyId } = useStorybookState();
-
-  React.useEffect(() => {
-    setStatus(manual ? 'manual' : 'initial');
-  }, [manual]);
-
-  const handleResult = (axeResults: AxeResults) => {
-    setStatus('ran');
-    setResults(axeResults);
-
-    setTimeout(() => {
-      if (status === 'ran') {
-        setStatus('ready');
-      }
-    }, 900);
-  };
-
-  const handleRun = useCallback(() => {
-    setStatus('running');
-  }, []);
-
-  const handleError = useCallback((err: unknown) => {
-    setStatus('error');
-    setError(err);
-  }, []);
-
-  const emit = useChannel({
-    [EVENTS.RUNNING]: handleRun,
-    [EVENTS.RESULT]: handleResult,
-    [EVENTS.ERROR]: handleError,
-  });
-
-  const handleManual = useCallback(() => {
-    setStatus('running');
-    emit(EVENTS.MANUAL, storyId);
-  }, [storyId]);
+  const { results, status, handleManual, error, discrepancy } = useA11yContext();
 
   const manualActionItems = useMemo(
     () => [{ title: 'Run test', onClick: handleManual }],
@@ -108,7 +58,8 @@ export const A11YPanel: React.FC = () => {
             'Rerun tests'
           ) : (
             <>
-              <Icon icon="check" /> Tests completed
+              <CheckIcon style={{ marginRight: '0.4em' }} />
+              Tests completed
             </>
           ),
         onClick: handleManual,
@@ -153,33 +104,42 @@ export const A11YPanel: React.FC = () => {
       },
     ];
   }, [results]);
+
   return (
     <>
-      {status === 'initial' && <Centered>Initializing...</Centered>}
-      {status === 'manual' && (
-        <>
-          <Centered>Manually run the accessibility scan.</Centered>
-          <ActionBar key="actionbar" actionItems={manualActionItems} />
-        </>
-      )}
-      {status === 'running' && (
-        <Centered>
-          <RotatingIcon icon="sync" /> Please wait while the accessibility scan is running ...
-        </Centered>
-      )}
-      {(status === 'ready' || status === 'ran') && (
+      {discrepancy && <TestDiscrepancyMessage discrepancy={discrepancy} />}
+      {status === 'ready' || status === 'ran' ? (
         <>
           <ScrollArea vertical horizontal>
             <Tabs key="tabs" tabs={tabs} />
           </ScrollArea>
           <ActionBar key="actionbar" actionItems={readyActionItems} />
         </>
-      )}
-      {status === 'error' && (
-        <Centered>
-          The accessibility scan encountered an error.
-          <br />
-          {typeof error === 'string' ? error : JSON.stringify(error)}
+      ) : (
+        <Centered style={{ marginTop: discrepancy ? '1em' : 0 }}>
+          {status === 'initial' && 'Initializing...'}
+          {status === 'manual' && (
+            <>
+              <>Manually run the accessibility scan.</>
+              <ActionBar key="actionbar" actionItems={manualActionItems} />
+            </>
+          )}
+          {status === 'running' && (
+            <>
+              <RotatingIcon size={12} /> Please wait while the accessibility scan is running ...
+            </>
+          )}
+          {status === 'error' && (
+            <>
+              The accessibility scan encountered an error.
+              <br />
+              {typeof error === 'string'
+                ? error
+                : error instanceof Error
+                  ? error.toString()
+                  : JSON.stringify(error)}
+            </>
+          )}
         </Centered>
       )}
     </>

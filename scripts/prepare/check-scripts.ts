@@ -1,7 +1,5 @@
-#!/usr/bin/env ./node_modules/.bin/ts-node-script
-
 import { join } from 'path';
-import * as ts from 'typescript';
+import ts from 'typescript';
 
 const run = async ({ cwd }: { cwd: string }) => {
   const { options, fileNames } = getTSFilesAndConfig('tsconfig.json');
@@ -34,7 +32,7 @@ run({ cwd: process.cwd() }).catch((err: unknown) => {
 
 function getTSDiagnostics(program: ts.Program, cwd: string, host: ts.CompilerHost): any {
   return ts.formatDiagnosticsWithColorAndContext(
-    ts.getPreEmitDiagnostics(program).filter((d) => d.file.fileName.startsWith(cwd)),
+    ts.getPreEmitDiagnostics(program).filter((d) => d.file?.fileName.startsWith(cwd)),
     host
   );
 }
