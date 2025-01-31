@@ -1,12 +1,16 @@
-import * as api from '@storybook/manager-api';
-import type { Addon_BaseType } from '@storybook/types';
+// @vitest-environment happy-dom
+import { describe, expect, it, vi } from 'vitest';
+
+import * as api from 'storybook/internal/manager-api';
+import type { Addon_BaseType } from 'storybook/internal/types';
+
 import { PANEL_ID } from './constants';
 import './manager';
 
-jest.mock('@storybook/manager-api');
-const mockedApi = api as unknown as jest.Mocked<api.API>;
-mockedApi.useAddonState = jest.fn();
-const mockedAddons = api.addons as jest.Mocked<typeof api.addons>;
+vi.mock('storybook/internal/manager-api');
+const mockedApi = vi.mocked<api.API>(api as any);
+mockedApi.useAddonState = vi.fn();
+const mockedAddons = vi.mocked(api.addons);
 const registrationImpl = mockedAddons.register.mock.calls[0][1];
 
 const isPanel = (input: Parameters<typeof mockedAddons.add>[1]): input is Addon_BaseType =>
@@ -35,7 +39,7 @@ describe('A11yManager', () => {
     mockedApi.useAddonState.mockImplementation(() => [undefined]);
     registrationImpl(api as unknown as api.API);
     const title = mockedAddons.add.mock.calls.map(([_, def]) => def).find(isPanel)
-      ?.title as Function;
+      ?.title as () => void;
 
     // when / then
     expect(title()).toMatchInlineSnapshot(`
@@ -45,7 +49,7 @@ describe('A11yManager', () => {
         >
           <span
             style={
-              Object {
+              {
                 "display": "inline-block",
                 "verticalAlign": "middle",
               }
@@ -53,7 +57,6 @@ describe('A11yManager', () => {
           >
             Accessibility
           </span>
-          
         </Spaced>
       </div>
     `);
@@ -69,7 +72,7 @@ describe('A11yManager', () => {
     ]);
     registrationImpl(mockedApi);
     const title = mockedAddons.add.mock.calls.map(([_, def]) => def).find(isPanel)
-      ?.title as Function;
+      ?.title as () => void;
 
     // when / then
     expect(title()).toMatchInlineSnapshot(`
@@ -79,7 +82,7 @@ describe('A11yManager', () => {
         >
           <span
             style={
-              Object {
+              {
                 "display": "inline-block",
                 "verticalAlign": "middle",
               }

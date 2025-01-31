@@ -1,6 +1,6 @@
 {
   "name": "@storybook/react",
-  "version": "7.5.0-alpha.2",
+  "version": "8.6.0-alpha.3",
   "description": "Storybook React renderer",
   "keywords": [
     "storybook"
@@ -22,24 +22,33 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "node": "./dist/index.js",
-      "require": "./dist/index.js",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
     },
-    "./preview": {
-      "types": "./dist/config.d.ts",
-      "require": "./dist/config.js",
-      "import": "./dist/config.mjs"
+    "./experimental-playwright": {
+      "types": "./dist/playwright.d.ts",
+      "import": "./dist/playwright.mjs",
+      "require": "./dist/playwright.js"
     },
-    "./dist/preset": {
-      "types": "./dist/preset.d.ts",
-      "require": "./dist/preset.js"
-    },
+    "./preset": "./preset.js",
+    "./dist/entry-preview.mjs": "./dist/entry-preview.mjs",
+    "./dist/entry-preview-docs.mjs": "./dist/entry-preview-docs.mjs",
+    "./dist/entry-preview-rsc.mjs": "./dist/entry-preview-rsc.mjs",
     "./package.json": "./package.json"
   },
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "dist/index.d.ts"
+      ],
+      "experimental-playwright": [
+        "dist/playwright.d.ts"
+      ]
+    }
+  },
   "files": [
     "dist/**/*",
     "template/cli/**/*",
@@ -49,51 +58,56 @@
     "!src/**/*"
   ],
   "scripts": {
-    "check": "../../../scripts/prepare/check.ts",
-    "prep": "../../../scripts/prepare/bundle.ts"
+    "check": "jiti ../../../scripts/prepare/check.ts",
+    "prep": "jiti ../../../scripts/prepare/bundle.ts"
   },
   "dependencies": {
-    "@storybook/client-logger": "workspace:*",
-    "@storybook/core-client": "workspace:*",
-    "@storybook/docs-tools": "workspace:*",
+    "@storybook/components": "workspace:*",
     "@storybook/global": "^5.0.0",
+    "@storybook/manager-api": "workspace:*",
     "@storybook/preview-api": "workspace:*",
     "@storybook/react-dom-shim": "workspace:*",
-    "@storybook/types": "workspace:*",
+    "@storybook/theming": "workspace:*"
+  },
+  "devDependencies": {
+    "@storybook/test": "workspace:*",
+    "@types/babel-plugin-react-docgen": "^4",
     "@types/escodegen": "^0.0.6",
     "@types/estree": "^0.0.51",
-    "@types/node": "^16.0.0",
+    "@types/node": "^22.0.0",
+    "@types/semver": "^7.3.4",
     "acorn": "^7.4.1",
     "acorn-jsx": "^5.3.1",
     "acorn-walk": "^7.2.0",
+    "babel-plugin-react-docgen": "^4.2.1",
+    "es-toolkit": "^1.22.0",
     "escodegen": "^2.1.0",
+    "expect-type": "^0.15.0",
     "html-tags": "^3.1.0",
-    "lodash": "^4.17.21",
     "prop-types": "^15.7.2",
     "react-element-to-jsx-string": "^15.0.0",
+    "require-from-string": "^2.0.2",
+    "semver": "^7.3.7",
     "ts-dedent": "^2.0.0",
-    "type-fest": "~2.19",
-    "util-deprecate": "^1.0.2"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.22.9",
-    "@types/util-deprecate": "^1.0.0",
-    "expect-type": "^0.15.0",
-    "jest-specific-snapshot": "^8.0.0",
-    "require-from-string": "^2.0.2"
+    "type-fest": "~2.19"
   },
   "peerDependencies": {
-    "react": "^16.8.0 || ^17.0.0 || ^18.0.0",
-    "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0",
-    "typescript": "*"
+    "@storybook/test": "workspace:*",
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0-beta",
+    "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0-beta",
+    "storybook": "workspace:^",
+    "typescript": ">= 4.2.x"
   },
   "peerDependenciesMeta": {
+    "@storybook/test": {
+      "optional": true
+    },
     "typescript": {
       "optional": true
     }
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   },
   "publishConfig": {
     "access": "public"
@@ -101,10 +115,13 @@
   "bundler": {
     "entries": [
       "./src/index.ts",
-      "./src/config.ts",
-      "./src/preset.ts"
+      "./src/preset.ts",
+      "./src/entry-preview.tsx",
+      "./src/entry-preview-docs.ts",
+      "./src/entry-preview-rsc.tsx",
+      "./src/playwright.ts"
     ],
     "platform": "browser"
   },
-  "gitHead": "e6a7fd8a655c69780bc20b9749c2699e44beae17"
+  "gitHead": "e6a7fd8a655c69780bc20b9749c2699e44beae16"
 }

@@ -1,14 +1,18 @@
-/* eslint-disable no-console */
+import { join } from 'node:path';
+
 import { setOutput } from '@actions/core';
+import { program } from 'commander';
+// eslint-disable-next-line depend/ban-dependencies
+import { execaCommand } from 'execa';
+// eslint-disable-next-line depend/ban-dependencies
 import { readFile, readJson, writeFile, writeJson } from 'fs-extra';
-import chalk from 'chalk';
-import path from 'path';
-import program from 'commander';
+import picocolors from 'picocolors';
 import semver from 'semver';
 import { z } from 'zod';
+
+import { esMain } from '../utils/esmain';
 import type { Workspace } from '../utils/workspace';
 import { getWorkspaces } from '../utils/workspace';
-import { execaCommand } from '../utils/exec';
 
 program
   .name('version')
@@ -17,7 +21,10 @@ program
     '-R, --release-type <major|minor|patch|prerelease>',
     'Which release type to use to bump the version'
   )
-  .option('-P, --pre-id <id>', 'Which prerelease identifer to change to, eg. "alpha", "beta", "rc"')
+  .option(
+    '-P, --pre-id <id>',
+    'Which prerelease identifier to change to, eg. "alpha", "beta", "rc"'
+  )
   .option(
     '-E, --exact <version>',
     'Use exact version instead of calculating from current version, eg. "7.2.0-canary.123". Can not be combined with --release-type or --pre-id'
@@ -96,8 +103,8 @@ type ApplyOptions = BaseOptions & {
 };
 type Options = BumpOptions | ExactOptions | ApplyOptions;
 
-const CODE_DIR_PATH = path.join(__dirname, '..', '..', 'code');
-const CODE_PACKAGE_JSON_PATH = path.join(CODE_DIR_PATH, 'package.json');
+const CODE_DIR_PATH = join(__dirname, '..', '..', 'code');
+const CODE_PACKAGE_JSON_PATH = join(CODE_DIR_PATH, 'package.json');
 
 const validateOptions = (options: { [key: string]: any }): options is Options => {
   optionsSchema.parse(options);
@@ -111,22 +118,22 @@ const getCurrentVersion = async () => {
 };
 
 const bumpCodeVersion = async (nextVersion: string) => {
-  console.log(`🤜 Bumping version of ${chalk.cyan('code')}'s package.json...`);
+  console.log(`🤜 Bumping version of ${picocolors.cyan('code')}'s package.json...`);
 
   const codePkgJson = await readJson(CODE_PACKAGE_JSON_PATH);
 
   codePkgJson.version = nextVersion;
   await writeJson(CODE_PACKAGE_JSON_PATH, codePkgJson, { spaces: 2 });
 
-  console.log(`✅ Bumped version of ${chalk.cyan('code')}'s package.json`);
+  console.log(`✅ Bumped version of ${picocolors.cyan('code')}'s package.json`);
 };
 
 const bumpVersionSources = async (currentVersion: string, nextVersion: string) => {
   const filesToUpdate = [
-    path.join(CODE_DIR_PATH, 'lib', 'manager-api', 'src', 'version.ts'),
-    path.join(CODE_DIR_PATH, 'lib', 'cli', 'src', 'versions.ts'),
+    join(CODE_DIR_PATH, 'core', 'src', 'manager-api', 'version.ts'),
+    join(CODE_DIR_PATH, 'core', 'src', 'common', 'versions.ts'),
   ];
-  console.log(`🤜 Bumping versions in...:\n  ${chalk.cyan(filesToUpdate.join('\n  '))}`);
+  console.log(`🤜 Bumping versions in...:\n  ${picocolors.cyan(filesToUpdate.join('\n  '))}`);
 
   await Promise.all(
     filesToUpdate.map(async (filename) => {
@@ -136,7 +143,7 @@ const bumpVersionSources = async (currentVersion: string, nextVersion: string) =
     })
   );
 
-  console.log(`✅ Bumped versions in:\n  ${chalk.cyan(filesToUpdate.join('\n  '))}`);
+  console.log(`✅ Bumped versions in:\n  ${picocolors.cyan(filesToUpdate.join('\n  '))}`);
 };
 
 const bumpAllPackageJsons = async ({
@@ -149,7 +156,7 @@ const bumpAllPackageJsons = async ({
   verbose?: boolean;
 }) => {
   console.log(
-    `🤜 Bumping versions and dependencies in ${chalk.cyan(
+    `🤜 Bumping versions and dependencies in ${picocolors.cyan(
       `all ${packages.length} package.json`
     )}'s...`
   );
@@ -157,7 +164,7 @@ const bumpAllPackageJsons = async ({
   await Promise.all(
     packages.map(async (pkg) => {
       // 2. get the package.json
-      const packageJsonPath = path.join(CODE_DIR_PATH, pkg.location, 'package.json');
+      const packageJsonPath = join(CODE_DIR_PATH, pkg.location, 'package.json');
       const packageJson: {
         version: string;
         [key: string]: any;
@@ -166,7 +173,7 @@ const bumpAllPackageJsons = async ({
       packageJson.version = nextVersion;
       if (verbose) {
         console.log(
-          `    Bumping ${chalk.blue(pkg.name)}'s version to ${chalk.yellow(nextVersion)}`
+          `    Bumping ${picocolors.blue(pkg.name)}'s version to ${picocolors.yellow(nextVersion)}`
         );
       }
       await writeJson(packageJsonPath, packageJson, { spaces: 2 });
@@ -176,15 +183,15 @@ const bumpAllPackageJsons = async ({
 
 const bumpDeferred = async (nextVersion: string) => {
   console.log(
-    `⏳ Setting a ${chalk.cyan('deferred')} version bump with ${chalk.blue(
+    `⏳ Setting a ${picocolors.cyan('deferred')} version bump with ${picocolors.blue(
       'code/package.json#deferredNextVersion'
-    )} = ${chalk.yellow(nextVersion)}...`
+    )} = ${picocolors.yellow(nextVersion)}...`
   );
   const codePkgJson = await readJson(CODE_PACKAGE_JSON_PATH);
 
   if (codePkgJson.deferredNextVersion) {
     console.warn(
-      `❗ A "deferredNextVersion" property already exists with the value of ${chalk.cyan(
+      `❗ A "deferredNextVersion" property already exists with the value of ${picocolors.cyan(
         codePkgJson.deferredNextVersion
       )}. This will be overwritten and ignored.`
     );
@@ -193,12 +200,12 @@ const bumpDeferred = async (nextVersion: string) => {
   codePkgJson.deferredNextVersion = nextVersion;
   await writeJson(CODE_PACKAGE_JSON_PATH, codePkgJson, { spaces: 2 });
 
-  console.log(`✅ Set a ${chalk.cyan('deferred')} version bump. Not bumping any packages.`);
+  console.log(`✅ Set a ${picocolors.cyan('deferred')} version bump. Not bumping any packages.`);
 };
 
 const applyDeferredVersionBump = async () => {
   console.log(
-    `⏩ Applying previously deferred version bump set at ${chalk.blue(
+    `⏩ Applying previously deferred version bump set at ${picocolors.blue(
       'code/package.json#deferredNextVersion'
     )}...`
   );
@@ -216,9 +223,9 @@ const applyDeferredVersionBump = async () => {
   await writeJson(CODE_PACKAGE_JSON_PATH, codePkgJson, { spaces: 2 });
 
   console.log(
-    `✅ Extracted and removed deferred version ${chalk.green(
+    `✅ Extracted and removed deferred version ${picocolors.green(
       deferredNextVersion
-    )} from ${chalk.blue('code/package.json#deferredNextVersion')}`
+    )} from ${picocolors.blue('code/package.json#deferredNextVersion')}`
   );
 
   return deferredNextVersion;
@@ -235,11 +242,11 @@ export const run = async (options: unknown) => {
   const [packages, currentVersion] = await Promise.all([getWorkspaces(), getCurrentVersion()]);
 
   console.log(
-    `📦 found ${packages.length} storybook packages at version ${chalk.red(currentVersion)}`
+    `📦 found ${packages.length} storybook packages at version ${picocolors.red(currentVersion)}`
   );
   if (verbose) {
     const formattedPackages = packages.map(
-      (pkg) => `${chalk.green(pkg.name.padEnd(60))}: ${chalk.cyan(pkg.location)}`
+      (pkg) => `${picocolors.green(pkg.name.padEnd(60))}: ${picocolors.cyan(pkg.location)}`
     );
     console.log(`📦 Packages:
         ${formattedPackages.join('\n    ')}`);
@@ -250,41 +257,46 @@ export const run = async (options: unknown) => {
   if ('apply' in options && options.apply) {
     nextVersion = await applyDeferredVersionBump();
   } else if ('exact' in options && options.exact) {
-    console.log(`📈 Exact version selected: ${chalk.green(options.exact)}`);
+    console.log(`📈 Exact version selected: ${picocolors.green(options.exact)}`);
     nextVersion = options.exact;
   } else {
     const { releaseType, preId } = options as BumpOptions;
-    console.log(`📈 Release type selected: ${chalk.green(releaseType)}`);
+    console.log(`📈 Release type selected: ${picocolors.green(releaseType)}`);
     if (preId) {
-      console.log(`🆔 Version prerelease identifier selected: ${chalk.yellow(preId)}`);
+      console.log(`🆔 Version prerelease identifier selected: ${picocolors.yellow(preId)}`);
     }
 
     nextVersion = semver.inc(currentVersion, releaseType, preId);
 
     console.log(
-      `⏭ Bumping version ${chalk.blue(currentVersion)} with release type ${chalk.green(
+      `⏭ Bumping version ${picocolors.blue(currentVersion)} with release type ${picocolors.green(
         releaseType
       )}${
-        preId ? ` and ${chalk.yellow(preId)}` : ''
-      } results in version: ${chalk.bgGreenBright.bold(nextVersion)}`
+        preId ? ` and ${picocolors.yellow(preId)}` : ''
+      } results in version: ${picocolors.bold(picocolors.greenBright(nextVersion))}`
     );
   }
 
   if ('deferred' in options && options.deferred) {
     await bumpDeferred(nextVersion);
   } else {
-    console.log(`⏭ Bumping all packages to ${chalk.blue(nextVersion)}...`);
+    console.log(`⏭ Bumping all packages to ${picocolors.blue(nextVersion)}...`);
 
     await bumpCodeVersion(nextVersion);
     await bumpVersionSources(currentVersion, nextVersion);
     await bumpAllPackageJsons({ packages, nextVersion, verbose });
 
-    console.log(`⬆️ Updating lock file with ${chalk.blue('yarn install --mode=update-lockfile')}`);
+    console.log(
+      `⬆️ Updating lock file with ${picocolors.blue('yarn install --mode=update-lockfile')}`
+    );
     await execaCommand(`yarn install --mode=update-lockfile`, {
-      cwd: path.join(CODE_DIR_PATH),
+      cwd: join(CODE_DIR_PATH),
       stdio: verbose ? 'inherit' : undefined,
+      cleanup: true,
     });
-    console.log(`✅ Updated lock file with ${chalk.blue('yarn install --mode=update-lockfile')}`);
+    console.log(
+      `✅ Updated lock file with ${picocolors.blue('yarn install --mode=update-lockfile')}`
+    );
   }
 
   if (process.env.GITHUB_ACTIONS === 'true') {
@@ -293,7 +305,7 @@ export const run = async (options: unknown) => {
   }
 };
 
-if (require.main === module) {
+if (esMain(import.meta.url)) {
   const options = program.parse().opts();
   run(options).catch((err) => {
     console.error(err);

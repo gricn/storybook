@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import { extractType, setCompodocJson } from './compodoc';
 import { CompodocJson, Decorator } from './types';
 

@@ -1,32 +1,35 @@
-import type { Stats, Configuration, StatsOptions } from 'webpack';
-import webpack, { ProgressPlugin } from 'webpack';
-import webpackDevMiddleware from 'webpack-dev-middleware';
-import webpackHotMiddleware from 'webpack-hot-middleware';
-import { logger } from '@storybook/node-logger';
-import type { Builder, Options } from '@storybook/types';
-import { checkWebpackVersion } from '@storybook/core-webpack';
-import { dirname, join, parse } from 'path';
-import express from 'express';
-import fs from 'fs-extra';
-import { PREVIEW_BUILDER_PROGRESS } from '@storybook/core-events';
+import { cp } from 'node:fs/promises';
+import { join, parse } from 'node:path';
+
+import { PREVIEW_BUILDER_PROGRESS } from 'storybook/internal/core-events';
+import { logger } from 'storybook/internal/node-logger';
 import {
   WebpackCompilationError,
   WebpackInvocationError,
   WebpackMissingStatsError,
-} from '@storybook/core-events/server-errors';
+} from 'storybook/internal/server-errors';
+import type { Builder, Options } from 'storybook/internal/types';
+
+import { checkWebpackVersion } from '@storybook/core-webpack';
 
 import prettyTime from 'pretty-hrtime';
+import sirv from 'sirv';
+import { corePath } from 'storybook/core-path';
+import type { Configuration, Stats, StatsOptions } from 'webpack';
+import webpackDep, { DefinePlugin, ProgressPlugin } from 'webpack';
+import webpackDevMiddleware from 'webpack-dev-middleware';
+import webpackHotMiddleware from 'webpack-hot-middleware';
 
 export * from './types';
+export * from './preview/virtual-module-mapping';
+
+export const WebpackDefinePlugin = DefinePlugin;
 
 export const printDuration = (startTime: [number, number]) =>
   prettyTime(process.hrtime(startTime))
     .replace(' ms', ' milliseconds')
     .replace(' s', ' seconds')
     .replace(' m', ' minutes');
-
-const getAbsolutePath = <I extends string>(input: I): I =>
-  dirname(require.resolve(join(input, 'package.json'))) as any;
 
 let compilation: ReturnType<typeof webpackDevMiddleware> | undefined;
 let reject: (reason?: any) => void;
@@ -50,8 +53,8 @@ export const executor = {
   get: async (options: Options) => {
     const version = ((await options.presets.apply('webpackVersion')) || '5') as string;
     const webpackInstance =
-      (await options.presets.apply<{ default: typeof webpack }>('webpackInstance'))?.default ||
-      webpack;
+      (await options.presets.apply<{ default: typeof webpackDep }>('webpackInstance'))?.default ||
+      webpackDep;
     checkWebpackVersion({ version }, '5', 'builder-webpack5');
     return webpackInstance;
   },
@@ -60,7 +63,6 @@ export const executor = {
 export const getConfig: WebpackBuilder['getConfig'] = async (options) => {
   const { presets } = options;
   const typescriptOptions = await presets.apply('typescript', {}, options);
-  const babelOptions = await presets.apply('babel', {}, { ...options, typescriptOptions });
   const frameworkOptions = await presets.apply<any>('frameworkOptions');
 
   return presets.apply(
@@ -68,7 +70,6 @@ export const getConfig: WebpackBuilder['getConfig'] = async (options) => {
     {},
     {
       ...options,
-      babelOptions,
       typescriptOptions,
       frameworkOptions,
     }
@@ -107,8 +108,8 @@ export const bail: WebpackBuilder['bail'] = async () => {
 };
 
 /**
- * This function is a generator so that we can abort it mid process
- * in case of failure coming from other processes e.g. preview builder
+ * This function is a generator so that we can abort it mid process in case of failure coming from
+ * other processes e.g. preview builder
  *
  * I am sorry for making you read about generators today :')
  */
@@ -138,7 +139,7 @@ const starter: StarterFunction = async function* starterGeneratorFn({
   }
 
   yield;
-  const modulesCount = (await options.cache?.get('modulesCount').catch(() => {})) || 1000;
+  const modulesCount = await options.cache?.get('modulesCount', 1000);
   let totalModules: number;
   let value = 0;
 
@@ -148,7 +149,7 @@ const starter: StarterFunction = async function* starterGeneratorFn({
       const progress = { value, message: message.charAt(0).toUpperCase() + message.slice(1) };
       if (message === 'building') {
         // arg3 undefined in webpack5
-        const counts = (arg3 && arg3.match(/(\d+)\/(\d+)/)) || [];
+        const counts = (arg3 && arg3.match(/entries (\d+)\/(\d+)/)) || [];
         const complete = parseInt(counts[1], 10);
         const total = parseInt(counts[2], 10);
         if (!Number.isNaN(complete) && !Number.isNaN(total)) {
@@ -180,11 +181,15 @@ const starter: StarterFunction = async function* starterGeneratorFn({
 
   compilation = webpackDevMiddleware(compiler, middlewareOptions);
 
-  const previewResolvedDir = getAbsolutePath('@storybook/preview');
-  const previewDirOrigin = join(previewResolvedDir, 'dist');
-
-  router.use(`/sb-preview`, express.static(previewDirOrigin, { immutable: true, maxAge: '5m' }));
-
+  const previewResolvedDir = join(corePath, 'dist/preview');
+  router.use(
+    '/sb-preview',
+    sirv(previewResolvedDir, {
+      maxAge: 300000,
+      dev: true,
+      immutable: true,
+    })
+  );
   router.use(compilation);
   router.use(webpackHotMiddleware(compiler, { log: false }));
 
@@ -201,7 +206,7 @@ const starter: StarterFunction = async function* starterGeneratorFn({
   const { warnings, errors } = getWebpackStats({ config, stats });
 
   if (warnings.length > 0) {
-    warnings?.forEach((e) => logger.error(e.message));
+    warnings?.forEach((e) => logger.warn(e.message));
   }
 
   if (errors.length > 0) {
@@ -232,8 +237,8 @@ function getWebpackStats({ config, stats }: { config: Configuration; stats: Stat
 }
 
 /**
- * This function is a generator so that we can abort it mid process
- * in case of failure coming from other processes e.g. manager builder
+ * This function is a generator so that we can abort it mid process in case of failure coming from
+ * other processes e.g. manager builder
  *
  * I am sorry for making you read about generators today :')
  */
@@ -270,10 +275,11 @@ const builder: BuilderFunction = async function* builderGeneratorFn({ startTime,
       const { warnings, errors } = getWebpackStats({ config, stats });
 
       if (warnings.length > 0) {
-        warnings?.forEach((e) => logger.error(e.message));
+        warnings?.forEach((e) => logger.warn(e.message));
       }
 
       if (errors.length > 0) {
+        errors.forEach((e) => logger.error(e.message));
         compiler.close(() => fail(new WebpackCompilationError({ errors })));
         return;
       }
@@ -288,11 +294,9 @@ const builder: BuilderFunction = async function* builderGeneratorFn({ startTime,
     });
   });
 
-  const previewResolvedDir = getAbsolutePath('@storybook/preview');
-  const previewDirOrigin = join(previewResolvedDir, 'dist');
+  const previewResolvedDir = join(corePath, 'dist/preview');
   const previewDirTarget = join(options.outputDir || '', `sb-preview`);
-
-  const previewFiles = fs.copy(previewDirOrigin, previewDirTarget, {
+  const previewFiles = cp(previewResolvedDir, previewDirTarget, {
     filter: (src) => {
       const { ext } = parse(src);
       if (ext) {
@@ -300,6 +304,7 @@ const builder: BuilderFunction = async function* builderGeneratorFn({ startTime,
       }
       return true;
     },
+    recursive: true,
   });
 
   const [webpackCompilationOutput] = await Promise.all([webpackCompilation, previewFiles]);
@@ -312,7 +317,6 @@ export const start = async (options: BuilderStartOptions) => {
   let result;
 
   do {
-    // eslint-disable-next-line no-await-in-loop
     result = await asyncIterator.next();
   } while (!result.done);
 
@@ -324,7 +328,6 @@ export const build = async (options: BuilderStartOptions) => {
   let result;
 
   do {
-    // eslint-disable-next-line no-await-in-loop
     result = await asyncIterator.next();
   } while (!result.done);
 

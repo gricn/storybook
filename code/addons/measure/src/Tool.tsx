@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect } from 'react';
-import { useGlobals, useStorybookApi } from '@storybook/manager-api';
-import { Icons, IconButton } from '@storybook/components';
-import { TOOL_ID, ADDON_ID } from './constants';
+
+import { IconButton } from 'storybook/internal/components';
+import { useGlobals, useStorybookApi } from 'storybook/internal/manager-api';
+
+import { RulerIcon } from '@storybook/icons';
+
+import { ADDON_ID, TOOL_ID } from './constants';
 
 export const Tool = () => {
   const [globals, updateGlobals] = useGlobals();
@@ -33,7 +37,7 @@ export const Tool = () => {
       title="Enable measure"
       onClick={toggleMeasure}
     >
-      <Icons icon="ruler" />
+      <RulerIcon />
     </IconButton>
   );
 };

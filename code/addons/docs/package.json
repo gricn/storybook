@@ -1,6 +1,6 @@
 {
   "name": "@storybook/addon-docs",
-  "version": "7.5.0-alpha.2",
+  "version": "8.6.0-alpha.3",
   "description": "Document component usage and properties in Markdown",
   "keywords": [
     "addon",
@@ -26,29 +26,29 @@
   "license": "MIT",
   "exports": {
     ".": {
-      "node": "./dist/index.js",
       "types": "./dist/index.d.ts",
-      "require": "./dist/index.js",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
     },
     "./preview": {
       "types": "./dist/preview.d.ts",
-      "require": "./dist/preview.js",
-      "import": "./dist/preview.mjs"
+      "import": "./dist/preview.mjs",
+      "require": "./dist/preview.js"
     },
     "./preset": {
       "types": "./dist/preset.d.ts",
+      "import": "./dist/preset.js",
       "require": "./dist/preset.js"
     },
     "./blocks": {
       "types": "./dist/blocks.d.ts",
-      "require": "./dist/blocks.js",
-      "import": "./dist/blocks.mjs"
+      "import": "./dist/blocks.mjs",
+      "require": "./dist/blocks.js"
     },
     "./dist/preview": {
       "types": "./dist/preview.d.ts",
-      "require": "./dist/preview.js",
-      "import": "./dist/preview.mjs"
+      "import": "./dist/preview.mjs",
+      "require": "./dist/preview.js"
     },
     "./dist/preset": {
       "types": "./dist/preset.d.ts",
@@ -56,22 +56,27 @@
     },
     "./dist/shims/mdx-react-shim": {
       "types": "./dist/shims/mdx-react-shim.d.ts",
-      "require": "./dist/shims/mdx-react-shim.js",
-      "import": "./dist/shims/mdx-react-shim.mjs"
+      "import": "./dist/shims/mdx-react-shim.mjs",
+      "require": "./dist/shims/mdx-react-shim.js"
     },
     "./mdx-react-shim": {
       "types": "./dist/shims/mdx-react-shim.d.ts",
-      "require": "./dist/shims/mdx-react-shim.js",
-      "import": "./dist/shims/mdx-react-shim.mjs"
+      "import": "./dist/shims/mdx-react-shim.mjs",
+      "require": "./dist/shims/mdx-react-shim.js"
     },
+    "./mdx-loader": "./dist/mdx-loader.js",
     "./svelte/HOC.svelte": "./svelte/HOC.svelte",
     "./ember": "./ember/index.js",
     "./ember/index.js": "./ember/index.js",
     "./angular": "./angular/index.js",
     "./angular/index.js": "./angular/index.js",
     "./web-components/index.js": "./web-components/index.js",
-    "./jest-transform-mdx": "./jest-transform-mdx.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./manager": {
+      "types": "./dist/manager.d.ts",
+      "import": "./dist/manager.mjs",
+      "require": "./dist/manager.js"
+    }
   },
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -83,7 +88,6 @@
     "ember/**/*",
     "html/**/*",
     "svelte/**/*",
-    "postinstall/**/*",
     "react/**/*",
     "vue/**/*",
     "web-components/**/*",
@@ -94,38 +98,31 @@
     "!src/**/*"
   ],
   "scripts": {
-    "check": "../../../scripts/prepare/check.ts",
-    "prep": "../../../scripts/prepare/bundle.ts"
+    "check": "jiti ../../../scripts/prepare/check.ts",
+    "prep": "jiti ../../../scripts/prepare/bundle.ts"
   },
   "dependencies": {
-    "@jest/transform": "^29.3.1",
-    "@mdx-js/react": "^2.1.5",
+    "@mdx-js/react": "^3.0.0",
     "@storybook/blocks": "workspace:*",
-    "@storybook/client-logger": "workspace:*",
-    "@storybook/components": "workspace:*",
     "@storybook/csf-plugin": "workspace:*",
-    "@storybook/csf-tools": "workspace:*",
-    "@storybook/global": "^5.0.0",
-    "@storybook/mdx2-csf": "^1.0.0",
-    "@storybook/node-logger": "workspace:*",
-    "@storybook/postinstall": "workspace:*",
-    "@storybook/preview-api": "workspace:*",
     "@storybook/react-dom-shim": "workspace:*",
-    "@storybook/theming": "workspace:*",
-    "@storybook/types": "workspace:*",
-    "fs-extra": "^11.1.0",
-    "remark-external-links": "^8.0.0",
-    "remark-slug": "^6.0.0",
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0",
+    "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0",
     "ts-dedent": "^2.0.0"
   },
   "devDependencies": {
-    "react": "^16.14.0",
-    "react-dom": "^16.8.0",
-    "typescript": "~4.9.3"
+    "@mdx-js/mdx": "^3.0.0",
+    "@rollup/pluginutils": "^5.0.2",
+    "@types/react": "^16.8.0 || ^17.0.0 || ^18.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "rehype-external-links": "^3.0.0",
+    "rehype-slug": "^6.0.0",
+    "typescript": "^5.7.3",
+    "vite": "^4.0.4"
   },
   "peerDependencies": {
-    "react": "^16.8.0 || ^17.0.0 || ^18.0.0",
-    "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0"
+    "storybook": "workspace:^"
   },
   "publishConfig": {
     "access": "public"
@@ -136,13 +133,15 @@
       "./src/preset.ts",
       "./src/preview.ts",
       "./src/blocks.ts",
-      "./src/shims/mdx-react-shim.ts"
+      "./src/shims/mdx-react-shim.ts",
+      "./src/mdx-loader.ts",
+      "./src/manager.tsx"
     ],
-    "externals": [
-      "@storybook/mdx1-csf"
+    "managerEntries": [
+      "./src/manager.tsx"
     ]
   },
-  "gitHead": "e6a7fd8a655c69780bc20b9749c2699e44beae17",
+  "gitHead": "e6a7fd8a655c69780bc20b9749c2699e44beae16",
   "storybook": {
     "displayName": "Docs",
     "icon": "https://user-images.githubusercontent.com/263385/101991672-48355c80-3c7c-11eb-82d9-95fa12438f64.png",

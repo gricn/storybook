@@ -1,15 +1,17 @@
-import { global } from '@storybook/global';
 import type { Dispatch, SetStateAction } from 'react';
 import React, { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
-import { useAddonState, useChannel, useParameter } from '@storybook/manager-api';
+
 import {
   FORCE_REMOUNT,
-  IGNORED_EXCEPTION,
+  PLAY_FUNCTION_THREW_EXCEPTION,
   STORY_RENDER_PHASE_CHANGED,
   STORY_THREW_EXCEPTION,
-  PLAY_FUNCTION_THREW_EXCEPTION,
-} from '@storybook/core-events';
-import { EVENTS, type Call, CallStates, type LogItem } from '@storybook/instrumenter';
+  UNHANDLED_ERRORS_WHILE_PLAYING,
+} from 'storybook/internal/core-events';
+import { useAddonState, useChannel, useParameter } from 'storybook/internal/manager-api';
+
+import { global } from '@storybook/global';
+import { type Call, CallStates, EVENTS, type LogItem } from '@storybook/instrumenter';
 
 import { InteractionsPanel } from './components/InteractionsPanel';
 import { ADDON_ID } from './constants';
@@ -91,6 +93,7 @@ export const Panel = memo<{ storyId: string }>(function PanelMemoized({ storyId 
     hasException: false,
     caughtException: undefined,
     interactionsCount: 0,
+    unhandledErrors: undefined,
   });
 
   // local state
@@ -104,6 +107,7 @@ export const Panel = memo<{ storyId: string }>(function PanelMemoized({ storyId 
     interactions = [],
     isPlaying = false,
     caughtException = undefined,
+    unhandledErrors = undefined,
   } = addonState;
 
   // Log and calls are tracked in a ref so we don't needlessly rerender.
@@ -119,7 +123,10 @@ export const Panel = memo<{ storyId: string }>(function PanelMemoized({ storyId 
         ([end]: any) => setScrollTarget(end.isIntersecting ? undefined : end.target),
         { root: global.document.querySelector('#panel-tab-content') }
       );
-      if (endRef.current) observer.observe(endRef.current);
+
+      if (endRef.current) {
+        observer.observe(endRef.current);
+      }
     }
     return () => observer?.disconnect();
   }, []);
@@ -148,42 +155,43 @@ export const Panel = memo<{ storyId: string }>(function PanelMemoized({ storyId 
       },
       [STORY_RENDER_PHASE_CHANGED]: (event) => {
         if (event.newPhase === 'preparing') {
-          set((s) => ({
+          set({
             controlStates: INITIAL_CONTROL_STATES,
             isErrored: false,
             pausedAt: undefined,
             interactions: [],
             isPlaying: false,
-            isRerunAnimating: false,
-            scrollTarget,
-            collapsed: new Set() as Set<Call['id']>,
             hasException: false,
             caughtException: undefined,
             interactionsCount: 0,
-          }));
+            unhandledErrors: undefined,
+          });
           return;
         }
-        set((s) => ({
-          ...s,
-          isPlaying: event.newPhase === 'playing',
-          pausedAt: undefined,
-          ...(event.newPhase === 'rendering'
-            ? {
-                isErrored: false,
-                caughtException: undefined,
-              }
-            : {}),
-        }));
+        set((s) => {
+          const newState: typeof s = {
+            ...s,
+            isPlaying: event.newPhase === 'playing',
+            pausedAt: undefined,
+            ...(event.newPhase === 'rendering'
+              ? {
+                  isErrored: false,
+                  caughtException: undefined,
+                }
+              : {}),
+          };
+
+          return newState;
+        });
       },
       [STORY_THREW_EXCEPTION]: () => {
-        set((s) => ({ ...s, isErrored: true }));
+        set((s) => ({ ...s, isErrored: true, hasException: true }));
       },
       [PLAY_FUNCTION_THREW_EXCEPTION]: (e) => {
-        if (e?.message !== IGNORED_EXCEPTION.message) {
-          set((s) => ({ ...s, caughtException: e }));
-        } else {
-          set((s) => ({ ...s, caughtException: undefined }));
-        }
+        set((s) => ({ ...s, caughtException: e, hasException: true }));
+      },
+      [UNHANDLED_ERRORS_WHILE_PLAYING]: (e) => {
+        set((s) => ({ ...s, unhandledErrors: e, hasException: true }));
       },
     },
     [collapsed]
@@ -223,7 +231,10 @@ export const Panel = memo<{ storyId: string }>(function PanelMemoized({ storyId 
   const [fileName] = storyFilePath.toString().split('/').slice(-1);
   const scrollToTarget = () => scrollTarget?.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
-  const hasException = !!caughtException || interactions.some((v) => v.status === CallStates.ERROR);
+  const hasException =
+    !!caughtException ||
+    !!unhandledErrors ||
+    interactions.some((v) => v.status === CallStates.ERROR);
 
   if (isErrored) {
     return <Fragment key="interactions" />;
@@ -239,6 +250,7 @@ export const Panel = memo<{ storyId: string }>(function PanelMemoized({ storyId 
         fileName={fileName}
         hasException={hasException}
         caughtException={caughtException}
+        unhandledErrors={unhandledErrors}
         isPlaying={isPlaying}
         pausedAt={pausedAt}
         endRef={endRef}

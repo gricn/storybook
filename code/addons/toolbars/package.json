@@ -1,6 +1,6 @@
 {
   "name": "@storybook/addon-toolbars",
-  "version": "7.5.0-alpha.2",
+  "version": "8.6.0-alpha.3",
   "description": "Create your own toolbar items that control story rendering",
   "keywords": [
     "addon",
@@ -28,35 +28,16 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "node": "./dist/index.js",
-      "require": "./dist/index.js",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
     },
-    "./manager": {
-      "types": "./dist/manager.d.ts",
-      "require": "./dist/manager.js",
-      "import": "./dist/manager.mjs"
-    },
-    "./register": {
-      "types": "./dist/manager.d.ts",
-      "require": "./dist/manager.js",
-      "import": "./dist/manager.mjs"
-    },
+    "./manager": "./dist/manager.js",
+    "./register": "./dist/manager.js",
     "./package.json": "./package.json"
   },
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
-  "typesVersions": {
-    "*": {
-      "*": [
-        "dist/index.d.ts"
-      ],
-      "manager": [
-        "dist/manager.d.ts"
-      ]
-    }
-  },
   "files": [
     "dist/**/*",
     "README.md",
@@ -65,42 +46,29 @@
     "!src/**/*"
   ],
   "scripts": {
-    "check": "../../../scripts/prepare/check.ts",
-    "prep": "../../../scripts/prepare/bundle.ts"
-  },
-  "dependencies": {
-    "@storybook/client-logger": "workspace:*",
-    "@storybook/components": "workspace:*",
-    "@storybook/manager-api": "workspace:*",
-    "@storybook/preview-api": "workspace:*",
-    "@storybook/theming": "workspace:*"
+    "check": "jiti ../../../scripts/prepare/check.ts",
+    "prep": "jiti ../../../scripts/prepare/addon-bundle.ts"
   },
   "devDependencies": {
-    "typescript": "~4.9.3"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.7.3"
   },
   "peerDependencies": {
-    "react": "^16.8.0 || ^17.0.0 || ^18.0.0",
-    "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0"
-  },
-  "peerDependenciesMeta": {
-    "react": {
-      "optional": true
-    },
-    "react-dom": {
-      "optional": true
-    }
+    "storybook": "workspace:^"
   },
   "publishConfig": {
     "access": "public"
   },
   "bundler": {
-    "entries": [
-      "./src/index.ts",
-      "./src/manager.tsx"
+    "exportEntries": [
+      "./src/index.ts"
     ],
-    "platform": "browser"
+    "managerEntries": [
+      "./src/manager.tsx"
+    ]
   },
-  "gitHead": "e6a7fd8a655c69780bc20b9749c2699e44beae17",
+  "gitHead": "e6a7fd8a655c69780bc20b9749c2699e44beae16",
   "storybook": {
     "displayName": "Toolbars",
     "icon": "https://user-images.githubusercontent.com/263385/101991677-48cdf300-3c7c-11eb-93b4-19b0e3366959.png",

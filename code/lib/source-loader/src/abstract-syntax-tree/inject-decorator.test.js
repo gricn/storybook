@@ -1,12 +1,15 @@
-import fs from 'fs';
-import path from 'path';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
 import injectDecorator from './inject-decorator';
 
 describe('inject-decorator', () => {
   describe('positive', () => {
     const mockFilePath = './__mocks__/inject-decorator.stories.txt';
-    const source = fs.readFileSync(mockFilePath, 'utf-8');
-    const result = injectDecorator(source, path.resolve(__dirname, mockFilePath), {
+    const source = readFileSync(mockFilePath, 'utf-8');
+    const result = injectDecorator(source, resolve(__dirname, mockFilePath), {
       parser: 'javascript',
     });
 
@@ -25,8 +28,8 @@ describe('inject-decorator', () => {
 
   describe('positive - angular', () => {
     const mockFilePath = './__mocks__/inject-decorator.angular-stories.txt';
-    const source = fs.readFileSync(mockFilePath, 'utf-8');
-    const result = injectDecorator(source, path.resolve(__dirname, mockFilePath), {
+    const source = readFileSync(mockFilePath, 'utf-8');
+    const result = injectDecorator(source, resolve(__dirname, mockFilePath), {
       parser: 'typescript',
     });
 
@@ -45,8 +48,8 @@ describe('inject-decorator', () => {
 
   describe('positive - flow', () => {
     const mockFilePath = './__mocks__/inject-decorator.flow-stories.txt';
-    const source = fs.readFileSync(mockFilePath, 'utf-8');
-    const result = injectDecorator(source, path.resolve(__dirname, mockFilePath), {
+    const source = readFileSync(mockFilePath, 'utf-8');
+    const result = injectDecorator(source, resolve(__dirname, mockFilePath), {
       parser: 'flow',
     });
 
@@ -65,8 +68,8 @@ describe('inject-decorator', () => {
 
   describe('positive - ts', () => {
     const mockFilePath = './__mocks__/inject-decorator.ts.txt';
-    const source = fs.readFileSync(mockFilePath, 'utf-8');
-    const result = injectDecorator(source, path.resolve(__dirname, mockFilePath), {
+    const source = readFileSync(mockFilePath, 'utf-8');
+    const result = injectDecorator(source, resolve(__dirname, mockFilePath), {
       parser: 'typescript',
     });
 
@@ -85,8 +88,8 @@ describe('inject-decorator', () => {
 
   describe('stories with ugly comments', () => {
     const mockFilePath = './__mocks__/inject-decorator.ugly-comments-stories.txt';
-    const source = fs.readFileSync(mockFilePath, 'utf-8');
-    const result = injectDecorator(source, path.resolve(__dirname, mockFilePath), {
+    const source = readFileSync(mockFilePath, 'utf-8');
+    const result = injectDecorator(source, resolve(__dirname, mockFilePath), {
       parser: 'javascript',
     });
 
@@ -97,8 +100,8 @@ describe('inject-decorator', () => {
 
   describe('stories with ugly comments in ts', () => {
     const mockFilePath = './__mocks__/inject-decorator.ts.ugly-comments-stories.txt';
-    const source = fs.readFileSync(mockFilePath, 'utf-8');
-    const result = injectDecorator(source, path.resolve(__dirname, mockFilePath), {
+    const source = readFileSync(mockFilePath, 'utf-8');
+    const result = injectDecorator(source, resolve(__dirname, mockFilePath), {
       parser: 'typescript',
     });
 
@@ -109,9 +112,9 @@ describe('inject-decorator', () => {
 
   it('will not change the source when there are no "storiesOf" functions', () => {
     const mockFilePath = './__mocks__/inject-decorator.no-stories.txt';
-    const source = fs.readFileSync(mockFilePath, 'utf-8');
+    const source = readFileSync(mockFilePath, 'utf-8');
 
-    const result = injectDecorator(source, path.resolve(__dirname, mockFilePath));
+    const result = injectDecorator(source, resolve(__dirname, mockFilePath));
 
     expect(result.changed).toBeFalsy();
     expect(result.addsMap).toEqual({});
@@ -120,8 +123,8 @@ describe('inject-decorator', () => {
 
   describe('injectDecorator option is false', () => {
     const mockFilePath = './__mocks__/inject-decorator.stories.txt';
-    const source = fs.readFileSync(mockFilePath, 'utf-8');
-    const result = injectDecorator(source, path.resolve(__dirname, mockFilePath), {
+    const source = readFileSync(mockFilePath, 'utf-8');
+    const result = injectDecorator(source, resolve(__dirname, mockFilePath), {
       injectDecorator: false,
       parser: 'javascript',
     });
@@ -133,8 +136,8 @@ describe('inject-decorator', () => {
 
   describe('injectDecorator option is false - angular', () => {
     const mockFilePath = './__mocks__/inject-decorator.angular-stories.txt';
-    const source = fs.readFileSync(mockFilePath, 'utf-8');
-    const result = injectDecorator(source, path.resolve(__dirname, mockFilePath), {
+    const source = readFileSync(mockFilePath, 'utf-8');
+    const result = injectDecorator(source, resolve(__dirname, mockFilePath), {
       injectDecorator: false,
       parser: 'typescript',
     });
@@ -146,8 +149,8 @@ describe('inject-decorator', () => {
 
   describe('injectDecorator option is false - flow', () => {
     const mockFilePath = './__mocks__/inject-decorator.flow-stories.txt';
-    const source = fs.readFileSync(mockFilePath, 'utf-8');
-    const result = injectDecorator(source, path.resolve(__dirname, mockFilePath), {
+    const source = readFileSync(mockFilePath, 'utf-8');
+    const result = injectDecorator(source, resolve(__dirname, mockFilePath), {
       injectDecorator: false,
       parser: 'flow',
     });
@@ -159,8 +162,8 @@ describe('inject-decorator', () => {
 
   describe('injectDecorator option is false - ts', () => {
     const mockFilePath = './__mocks__/inject-decorator.ts.txt';
-    const source = fs.readFileSync(mockFilePath, 'utf-8');
-    const result = injectDecorator(source, path.resolve(__dirname, mockFilePath), {
+    const source = readFileSync(mockFilePath, 'utf-8');
+    const result = injectDecorator(source, resolve(__dirname, mockFilePath), {
       injectDecorator: false,
       parser: 'typescript',
     });

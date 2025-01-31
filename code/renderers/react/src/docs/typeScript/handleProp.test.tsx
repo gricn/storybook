@@ -1,12 +1,15 @@
 /* eslint-disable no-underscore-dangle */
+import { describe, expect, it } from 'vitest';
 
 import React from 'react';
+
 import {
-  type PropDef,
-  extractComponentProps,
   type DocgenInfo,
   type DocgenPropDefaultValue,
-} from '@storybook/docs-tools';
+  type PropDef,
+  extractComponentProps,
+} from 'storybook/internal/docs-tools';
+
 import { enhanceTypeScriptProp } from './handleProp';
 
 type Component = any;
@@ -39,7 +42,6 @@ function createDocgenProp({
   };
 }
 
-// eslint-disable-next-line react/forbid-foreign-prop-types
 function createComponent({ propTypes = {}, defaultProps = {}, docgenInfo = {} }): Component {
   const component = () => {
     return <div>Hey!</div>;
@@ -64,7 +66,7 @@ function extractPropDef(component: Component, rawDefaultProp?: any): PropDef {
 describe('enhanceTypeScriptProp', () => {
   describe('defaultValue', () => {
     function createTestComponent(
-      defaultValue: DocgenPropDefaultValue,
+      defaultValue: DocgenPropDefaultValue | undefined,
       typeName = 'anything-is-fine'
     ): Component {
       return createComponent({
@@ -85,7 +87,7 @@ describe('enhanceTypeScriptProp', () => {
 
       const expectedSummary = "{ foo: 'foo', bar: 'bar' }";
 
-      expect(defaultValue?.summary.replace(/\s/g, '')).toBe(expectedSummary.replace(/\s/g, ''));
+      expect(defaultValue?.summary?.replace(/\s/g, '')).toBe(expectedSummary.replace(/\s/g, ''));
       expect(defaultValue?.detail).toBeUndefined();
     });
 
@@ -295,8 +297,7 @@ describe('enhanceTypeScriptProp', () => {
       });
 
       it('should support strings', () => {
-        // @ts-expect-error (not strict)
-        const component = createTestComponent(null);
+        const component = createTestComponent(undefined);
 
         const { defaultValue } = extractPropDef(component, 'foo');
 
@@ -305,8 +306,7 @@ describe('enhanceTypeScriptProp', () => {
       });
 
       it('should support array of primitives', () => {
-        // @ts-expect-error (not strict)
-        const component = createTestComponent(null);
+        const component = createTestComponent(undefined);
 
         const { defaultValue } = extractPropDef(component, [1, 2, 3]);
 
@@ -315,8 +315,7 @@ describe('enhanceTypeScriptProp', () => {
       });
 
       it('should support array of short object', () => {
-        // @ts-expect-error (not strict)
-        const component = createTestComponent(null);
+        const component = createTestComponent(undefined);
 
         const { defaultValue } = extractPropDef(component, [{ foo: 'bar' }]);
 
@@ -325,8 +324,7 @@ describe('enhanceTypeScriptProp', () => {
       });
 
       it('should support array of long object', () => {
-        // @ts-expect-error (not strict)
-        const component = createTestComponent(null);
+        const component = createTestComponent(undefined);
 
         const { defaultValue } = extractPropDef(component, [{ foo: 'bar', bar: 'foo', hey: 'ho' }]);
 
@@ -342,8 +340,7 @@ describe('enhanceTypeScriptProp', () => {
       });
 
       it('should support short object', () => {
-        // @ts-expect-error (not strict)
-        const component = createTestComponent(null);
+        const component = createTestComponent(undefined);
 
         const { defaultValue } = extractPropDef(component, { foo: 'bar' });
 
@@ -352,8 +349,7 @@ describe('enhanceTypeScriptProp', () => {
       });
 
       it('should support long object', () => {
-        // @ts-expect-error (not strict)
-        const component = createTestComponent(null);
+        const component = createTestComponent(undefined);
 
         const { defaultValue } = extractPropDef(component, { foo: 'bar', bar: 'foo', hey: 'ho' });
 
@@ -369,8 +365,7 @@ describe('enhanceTypeScriptProp', () => {
       });
 
       it('should support anonymous function', () => {
-        // @ts-expect-error (not strict)
-        const component = createTestComponent(null);
+        const component = createTestComponent(undefined);
 
         const { defaultValue } = extractPropDef(component, () => 'hey!');
 
@@ -379,8 +374,7 @@ describe('enhanceTypeScriptProp', () => {
       });
 
       it('should support named function', () => {
-        // @ts-expect-error (not strict)
-        const component = createTestComponent(null);
+        const component = createTestComponent(undefined);
 
         const { defaultValue } = extractPropDef(component, function hello() {
           return 'world!';
@@ -391,8 +385,7 @@ describe('enhanceTypeScriptProp', () => {
       });
 
       it('should support named function with params', () => {
-        // @ts-expect-error (not strict)
-        const component = createTestComponent(null);
+        const component = createTestComponent(undefined);
 
         const { defaultValue } = extractPropDef(component, function add(a: number, b: number) {
           return a + b;
@@ -403,8 +396,7 @@ describe('enhanceTypeScriptProp', () => {
       });
 
       it('should support React element', () => {
-        // @ts-expect-error (not strict)
-        const component = createTestComponent(null);
+        const component = createTestComponent(undefined);
 
         const defaultProp = <ReactComponent />;
         // Simulate babel-plugin-add-react-displayname.
@@ -417,8 +409,7 @@ describe('enhanceTypeScriptProp', () => {
       });
 
       it('should support React element with props', () => {
-        // @ts-expect-error (not strict)
-        const component = createTestComponent(null);
+        const component = createTestComponent(undefined);
 
         // @ts-expect-error (Converted from ts-ignore)
         const defaultProp = <ReactComponent className="toto" />;
@@ -432,8 +423,7 @@ describe('enhanceTypeScriptProp', () => {
       });
 
       it('should support short HTML element', () => {
-        // @ts-expect-error (not strict)
-        const component = createTestComponent(null);
+        const component = createTestComponent(undefined);
 
         const { defaultValue } = extractPropDef(component, <div>HTML element</div>);
 
@@ -442,8 +432,7 @@ describe('enhanceTypeScriptProp', () => {
       });
 
       it('should support long HTML element', () => {
-        // @ts-expect-error (not strict)
-        const component = createTestComponent(null);
+        const component = createTestComponent(undefined);
 
         const { defaultValue } = extractPropDef(
           component,
@@ -461,8 +450,7 @@ describe('enhanceTypeScriptProp', () => {
 
       ['element', 'elementType'].forEach((x) => {
         it(`should support inlined React class component for ${x}`, () => {
-          // @ts-expect-error (not strict)
-          const component = createTestComponent(null, x);
+          const component = createTestComponent(undefined, x);
 
           const { defaultValue } = extractPropDef(
             component,
@@ -478,8 +466,7 @@ describe('enhanceTypeScriptProp', () => {
         });
 
         it(`should support inlined anonymous React functional component for ${x}`, () => {
-          // @ts-expect-error (not strict)
-          const component = createTestComponent(null, x);
+          const component = createTestComponent(undefined, x);
 
           const { defaultValue } = extractPropDef(component, () => {
             return <div>Inlined FunctionalComponent!</div>;
@@ -490,8 +477,7 @@ describe('enhanceTypeScriptProp', () => {
         });
 
         it(`should support inlined anonymous React functional component with props for ${x}`, () => {
-          // @ts-expect-error (not strict)
-          const component = createTestComponent(null, x);
+          const component = createTestComponent(undefined, x);
 
           const { defaultValue } = extractPropDef(component, ({ foo }: { foo: string }) => {
             return <div>{foo}</div>;
@@ -502,8 +488,7 @@ describe('enhanceTypeScriptProp', () => {
         });
 
         it(`should support inlined named React functional component for ${x}`, () => {
-          // @ts-expect-error (not strict)
-          const component = createTestComponent(null, x);
+          const component = createTestComponent(undefined, x);
 
           const { defaultValue } = extractPropDef(component, function InlinedFunctionalComponent() {
             return <div>Inlined FunctionalComponent!</div>;
@@ -514,8 +499,7 @@ describe('enhanceTypeScriptProp', () => {
         });
 
         it(`should support inlined named React functional component with props for ${x}`, () => {
-          // @ts-expect-error (not strict)
-          const component = createTestComponent(null, x);
+          const component = createTestComponent(undefined, x);
 
           const { defaultValue } = extractPropDef(
             component,

@@ -1,6 +1,8 @@
-import { moduleMetadata, Meta } from '@storybook/angular';
-import { APP_INITIALIZER } from '@angular/core';
 import { action } from '@storybook/addon-actions';
+import { Meta, StoryObj, moduleMetadata } from '@storybook/angular';
+
+import { APP_INITIALIZER } from '@angular/core';
+
 import Button from '../../button.component';
 
 const meta: Meta<Button> = {
@@ -27,7 +29,9 @@ const meta: Meta<Button> = {
 
 export default meta;
 
-export const Default = {
+type Story = StoryObj<Button>;
+
+export const Default: Story = {
   args: {
     text: 'Button',
   },

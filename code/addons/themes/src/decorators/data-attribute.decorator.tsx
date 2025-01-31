@@ -1,6 +1,8 @@
-import { useEffect } from '@storybook/preview-api';
-import type { DecoratorFunction, Renderer } from '@storybook/types';
-import { initializeThemeState, pluckThemeFromContext, useThemeParameters } from './helpers';
+import { useEffect } from 'storybook/internal/preview-api';
+import type { DecoratorFunction, Renderer } from 'storybook/internal/types';
+
+import { PARAM_KEY } from '../constants';
+import { initializeThemeState, pluckThemeFromContext } from './helpers';
 
 export interface DataAttributeStrategyConfiguration {
   themes: Record<string, string>;
@@ -12,7 +14,8 @@ export interface DataAttributeStrategyConfiguration {
 const DEFAULT_ELEMENT_SELECTOR = 'html';
 const DEFAULT_DATA_ATTRIBUTE = 'data-theme';
 
-export const withThemeByDataAttribute = <TRenderer extends Renderer = Renderer>({
+// TODO check with @kasperpeulen: change the types so they can be correctly inferred from context e.g. <Story extends (...args: any[]) => any>
+export const withThemeByDataAttribute = <TRenderer extends Renderer = any>({
   themes,
   defaultTheme,
   parentSelector = DEFAULT_ELEMENT_SELECTOR,
@@ -20,7 +23,7 @@ export const withThemeByDataAttribute = <TRenderer extends Renderer = Renderer>(
 }: DataAttributeStrategyConfiguration): DecoratorFunction<TRenderer> => {
   initializeThemeState(Object.keys(themes), defaultTheme);
   return (storyFn, context) => {
-    const { themeOverride } = useThemeParameters();
+    const { themeOverride } = context.parameters[PARAM_KEY] ?? {};
     const selected = pluckThemeFromContext(context);
 
     useEffect(() => {
@@ -30,7 +33,7 @@ export const withThemeByDataAttribute = <TRenderer extends Renderer = Renderer>(
       if (parentElement) {
         parentElement.setAttribute(attributeName, themes[themeKey]);
       }
-    }, [themeOverride, selected, parentSelector, attributeName]);
+    }, [themeOverride, selected]);
 
     return storyFn();
   };

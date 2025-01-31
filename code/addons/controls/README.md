@@ -2,19 +2,19 @@
 
 [Storybook](https://storybook.js.org) Controls gives you a graphical UI to interact with a component's arguments dynamically, without needing to code. It creates an addon panel next to your component examples ("stories"), so you can edit them live.
 
-[Framework Support](https://storybook.js.org/docs/react/api/frameworks-feature-support)
+[Framework Support](https://storybook.js.org/docs/configure/integration/frameworks-feature-support)
 
 ![Screenshot](https://raw.githubusercontent.com/storybookjs/storybook/next/code/addons/controls/docs/media/addon-controls-hero.gif)
 
 ## Installation
 
-Controls is part of [essentials](https://storybook.js.org/docs/react/essentials/introduction) and so is installed in all new Storybooks by default. If you need to add it to your Storybook, you can run:
+Controls is part of [essentials](https://storybook.js.org/docs/essentials) and so is installed in all new Storybooks by default. If you need to add it to your Storybook, you can run:
 
 ```sh
 npm i -D @storybook/addon-controls
 ```
 
-Then, add following content to [`.storybook/main.js`](https://storybook.js.org/docs/react/configure/overview#configure-your-storybook-project):
+Then, add following content to [`.storybook/main.js`](https://storybook.js.org/docs/configure#configure-your-storybook-project):
 
 ```js
 export default {
@@ -24,7 +24,7 @@ export default {
 
 ## Usage
 
-The usage is documented in the [documentation](https://storybook.js.org/docs/react/essentials/controls).
+The usage is documented in the [documentation](https://storybook.js.org/docs/essentials/controls).
 
 ## FAQs
 
@@ -44,7 +44,7 @@ Addon-knobs is one of Storybook's most popular addons with over 1M weekly downlo
 
 Therefore, rather than deprecating addon-knobs immediately, we will continue to release knobs with the Storybook core distribution until 7.0. This will give us time to improve Controls based on user feedback, and also give knobs users ample time to migrate.
 
-If you are somehow tied to knobs or prefer the knobs interface, we are happy to take on maintainers for the knobs project. If this interests you, hop on our [Discord](https://discord.gg/storybook).
+If you are somehow tied to knobs or prefer the knobs interface, we are happy to take on maintainers for the knobs project. If this interests you, please get in touch with us in the [`#contributing`](https://discord.com/channels/486522875931656193/839297503446695956) Discord channel.
 
 ### How do I migrate from addon-knobs?
 
@@ -92,7 +92,7 @@ export const Reflow = () => {
 };
 ```
 
-And again, as above, this can be rewritten using [fully custom args](https://storybook.js.org/docs/react/essentials/controls#fully-custom-args):
+And again, as above, this can be rewritten using [fully custom args](https://storybook.js.org/docs/essentials/controls#fully-custom-args):
 
 ```jsx
 export const Reflow = ({ count, label, ...args }) => (
@@ -123,7 +123,7 @@ Reflow.argTypes = {
 
 There are a few known cases where controls can't be auto-generated:
 
-- You're using a framework for which automatic generation [isn't supported](https://storybook.js.org/docs/react/api/frameworks-feature-support)
+- You're using a framework for which automatic generation [isn't supported](https://storybook.js.org/docs/configure/integration/frameworks-feature-support)
 - You're trying to generate controls for a component defined in an external library
 
 With a little manual work you can still use controls in such cases. Consider the following example:
@@ -147,7 +147,7 @@ Basic.args = {
 };
 ```
 
-The `argTypes` annotation (which can also be applied to individual stories if needed), gives Storybook the hints it needs to generate controls in these unsupported cases. See [control annotations](https://storybook.js.org/docs/react/essentials/controls#annotation) for a full list of control types.
+The `argTypes` annotation (which can also be applied to individual stories if needed), gives Storybook the hints it needs to generate controls in these unsupported cases. See [control annotations](https://storybook.js.org/docs/essentials/controls#annotation) for a full list of control types.
 
 It's also possible that your Storybook is misconfigured. If you think this might be the case, please search through Storybook's [Github issues](https://github.com/storybookjs/storybook/issues), and file a new issue if you don't find one that matches your use case.
 
@@ -172,42 +172,8 @@ CustomControls.argTypes = {
 };
 ```
 
-Like [story parameters](https://storybook.js.org/docs/react/writing-stories/parameters), `args` and `argTypes` annotations are hierarchically merged, so story-level annotations overwrite component-level annotations.
+Like [story parameters](https://storybook.js.org/docs/writing-stories/parameters), `args` and `argTypes` annotations are hierarchically merged, so story-level annotations overwrite component-level annotations.
 
 ### How do controls work with MDX?
 
-MDX compiles to component story format (CSF) under the hood, so there's a direct mapping for every example above using the `args` and `argTypes` props.
-
-Consider this example in CSF:
-
-```js
-import { Button } from './Button';
-export default {
-  title: 'Button',
-  component: Button,
-  argTypes: {
-    background: { control: 'color' },
-  },
-};
-
-const Template = (args) => <Button {...args} />;
-export const Basic = Template.bind({});
-Basic.args = { label: 'hello', background: '#ff0' };
-```
-
-Here's the MDX equivalent:
-
-```jsx
-import { Meta, Story } from '@storybook/addon-docs';
-import { Button } from './Button';
-
-<Meta title="Button" component={Button} argTypes={{ background: { control: 'color' } }} />
-
-export const Template = (args) => <Button {...args} />
-
-<Story name="Basic" args={{ label: 'hello', background: '#ff0' }}>
-  {Template.bind({})}
-</Story>
-```
-
-For more info, see a full [Controls example in MDX for Vue](https://raw.githubusercontent.com/storybookjs/storybook/next/code/examples/vue-kitchen-sink/src/stories/addon-controls.stories.mdx).
+When importing stories from your CSF file into MDX, controls will work the same way. See [the documentation](https://storybook.js.org/docs/writing-docs/mdx#basic-example) for examples.

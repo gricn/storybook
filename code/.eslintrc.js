@@ -4,26 +4,51 @@ const scriptPath = path.join(__dirname, '..', 'scripts');
 
 module.exports = {
   root: true,
-  extends: [path.join(scriptPath, '.eslintrc.js')],
+  extends: [path.join(scriptPath, '.eslintrc.cjs')],
   parserOptions: {
     tsconfigRootDir: __dirname,
     project: ['./tsconfig.json'],
   },
   plugins: ['local-rules'],
   rules: {
+    'import/no-extraneous-dependencies': [
+      'error',
+      { devDependencies: true, peerDependencies: true },
+    ],
+    'import/no-unresolved': 'off', // covered by typescript
     'eslint-comments/disable-enable-pair': ['error', { allowWholeFile: true }],
     'eslint-comments/no-unused-disable': 'error',
     'react-hooks/rules-of-hooks': 'off',
     'import/extensions': 'off', // for mjs, we sometimes need extensions
-    'jest/no-done-callback': 'off',
+    'jsx-a11y/control-has-associated-label': 'off',
     '@typescript-eslint/dot-notation': [
       'error',
       {
         allowIndexSignaturePropertyAccess: true,
       },
     ],
+    '@typescript-eslint/no-restricted-imports': [
+      'error',
+      {
+        paths: [
+          {
+            name: 'vite',
+            message: 'Please dynamically import from vite instead, to force the use of ESM',
+            allowTypeImports: true,
+          },
+        ],
+      },
+    ],
+    '@typescript-eslint/default-param-last': 'off',
   },
   overrides: [
+    {
+      files: ['**/templates/virtualModuleModernEntry.js'],
+      rules: {
+        'no-underscore-dangle': 'off',
+        'import/no-extraneous-dependencies': 'off',
+      },
+    },
     {
       // this package depends on a lot of peerDependencies we don't want to specify, because npm would install them
       files: ['**/frameworks/angular/template/**/*'],
@@ -33,27 +58,11 @@ module.exports = {
       },
     },
     {
-      // this package depends on a lot of peerDependencies we don't want to specify, because npm would install them
-      files: ['**/addons/docs/**/*'],
-      rules: {
-        'import/no-extraneous-dependencies': 'off',
-      },
-    },
-    {
-      files: [
-        '*.js',
-        '*.jsx',
-        '*.json',
-        '*.html',
-        '**/.storybook/*.ts',
-        '**/.storybook/*.tsx',
-        'setup-jest.ts',
-      ],
+      files: ['*.js', '*.jsx', '*.json', '*.html', '**/.storybook/*.ts', '**/.storybook/*.tsx'],
       parserOptions: {
         project: null,
       },
       rules: {
-        // '@typescript-eslint/no-var-requires': 'off',
         '@typescript-eslint/dot-notation': 'off',
         '@typescript-eslint/no-implied-eval': 'off',
         '@typescript-eslint/no-throw-literal': 'off',
@@ -62,48 +71,40 @@ module.exports = {
     },
     {
       // this package depends on a lot of peerDependencies we don't want to specify, because npm would install them
-      files: ['**/*.ts', '**/*.tsx'],
+      files: ['**/builder-vite/**/*.html'],
       rules: {
-        'no-shadow': 'off',
-        '@typescript-eslint/ban-types': 'warn', // should become error, in the future
+        '@typescript-eslint/no-unused-expressions': 'off', // should become error, in the future
       },
     },
     {
-      // these packages use pre-bundling, dependencies will be bundled, and will be in devDepenencies
-      files: [
-        'addons/**/*',
-        'frameworks/**/*',
-        'lib/**/*',
-        'builders/**/*',
-        'deprecated/**/*',
-        'renderers/**/*',
-        'ui/**/*',
-      ],
-      excludedFiles: ['frameworks/angular/**/*', 'frameworks/ember/**/*', 'lib/core-server/**/*'],
+      files: ['**/.storybook/**', '**/scripts/**/*', 'vitest.d.ts', '**/vitest.config.*'],
       rules: {
         'import/no-extraneous-dependencies': [
           'error',
-          { bundledDependencies: false, devDependencies: true },
+          { packageDir: [__dirname], devDependencies: true, peerDependencies: true },
         ],
       },
     },
     {
-      files: ['**/ui/*', '**/ui/.storybook/*'],
-      rules: {
-        'import/no-extraneous-dependencies': ['error', { packageDir: __dirname }],
-      },
-    },
-    {
       files: [
+        '*.test.*',
+        '*.spec.*',
+        '**/addons/docs/**/*',
         '**/__tests__/**',
         '**/__testfixtures__/**',
         '**/*.test.*',
         '**/*.stories.*',
-        '**/storyshots-*/**/stories/**',
+        '**/*.mockdata.*',
+        '**/template/**/*',
       ],
       rules: {
-        '@typescript-eslint/no-empty-function': 'off',
         'import/no-extraneous-dependencies': 'off',
+      },
+    },
+    {
+      files: ['**/__tests__/**', '**/__testfixtures__/**', '**/*.test.*', '**/*.stories.*'],
+      rules: {
+        '@typescript-eslint/no-empty-function': 'off',
       },
     },
     {
@@ -114,7 +115,6 @@ module.exports = {
         'react/require-default-props': 'off',
       },
     },
-    { files: '**/.storybook/config.js', rules: { 'global-require': 'off' } },
     {
       files: ['**/*.stories.*'],
       rules: {
@@ -122,8 +122,17 @@ module.exports = {
       },
     },
     {
+      files: ['**/renderers/preact/**/*'],
+      rules: {
+        'react/react-in-jsx-scope': 'off',
+        'react/prop-types': 'off',
+      },
+    },
+    {
       files: ['**/*.tsx', '**/*.ts'],
       rules: {
+        'no-shadow': 'off',
+        '@typescript-eslint/ban-types': 'warn', // should become error, in the future
         'react/require-default-props': 'off',
         'react/prop-types': 'off', // we should use types
         'react/forbid-prop-types': 'off', // we should use types
@@ -149,35 +158,53 @@ module.exports = {
       },
     },
     {
-      files: ['**/e2e-tests/**/*'],
-      rules: {
-        'jest/no-test-callback': 'off', // These aren't jest tests
-      },
-    },
-    {
       files: ['**/builder-vite/input/iframe.html'],
       rules: {
         'no-undef': 'off', // ignore "window" undef errors
       },
     },
     {
-      // Because those templates reference css files in other directory.
-      files: ['**/template/cli/**/*'],
-      rules: {
-        'import/no-unresolved': 'off',
-      },
-    },
-    {
       files: ['**/*.ts', '!**/*.test.*', '!**/*.spec.*'],
+      excludedFiles: ['**/*.test.*', '**/*.mockdata.*'],
       rules: {
         'local-rules/no-uncategorized-errors': 'warn',
       },
     },
     {
-      files: ['**/core-events/src/**/*'],
+      files: ['**/*.ts', '!**/*.test.*', '!**/*.spec.*'],
+      excludedFiles: ['**/*.test.*'],
+      rules: {
+        'local-rules/storybook-monorepo-imports': 'error',
+      },
+    },
+    {
+      files: ['./core/src/preview-errors.ts'],
       excludedFiles: ['**/*.test.*'],
       rules: {
         'local-rules/no-duplicated-error-codes': 'error',
+      },
+    },
+    {
+      files: ['./e2e-tests/*.ts'],
+      extends: ['plugin:playwright/recommended'],
+      rules: {
+        'playwright/no-skipped-test': [
+          'warn',
+          {
+            allowConditional: true,
+          },
+        ],
+        'playwright/no-raw-locators': 'off', // TODO: enable this, requires the UI to actually be accessible
+        'playwright/prefer-comparison-matcher': 'error',
+        'playwright/prefer-equality-matcher': 'error',
+        'playwright/prefer-hooks-on-top': 'error',
+        'playwright/prefer-strict-equal': 'error',
+        'playwright/prefer-to-be': 'error',
+        'playwright/prefer-to-contain': 'error',
+        'playwright/prefer-to-have-count': 'error',
+        'playwright/prefer-to-have-length': 'error',
+        'playwright/require-to-throw-message': 'error',
+        'playwright/require-top-level-describe': 'error',
       },
     },
   ],

@@ -19,6 +19,11 @@
       "description": "Directory where to store built files.",
       "default": "storybook-static"
     },
+    "preserveSymlinks": {
+      "type": "boolean",
+      "description": "Do not use the real path when resolving modules. If true, symlinks are resolved to their real path, if false, symlinks are resolved to their symlinked path.",
+      "default": false
+    },
     "configDir": {
       "type": "string",
       "description": "Directory where to load Storybook configurations from.",
@@ -28,6 +33,11 @@
       "type": "string",
       "description": "Controls level of logging during build. Can be one of: [silly, verbose, info (default), warn, error, silent].",
       "pattern": "(silly|verbose|info|warn|silent)"
+    },
+    "debugWebpack": {
+      "type": "boolean",
+      "description": "Debug the Webpack configuration",
+      "default": false
     },
     "enableProdMode": {
       "type": "boolean",
@@ -41,7 +51,12 @@
     },
     "docs": {
       "type": "boolean",
-      "description": "Starts Storybook in documentation mode. Learn more about it : https://storybook.js.org/docs/react/writing-docs/build-documentation#preview-storybooks-documentation.",
+      "description": "Starts Storybook in documentation mode. Learn more about it : https://storybook.js.org/docs/writing-docs/build-documentation#preview-storybooks-documentation.",
+      "default": false
+    },
+    "test": {
+      "type": "boolean",
+      "description": "Build the static version of the sandbox optimized for testing purposes",
       "default": false
     },
     "compodoc": {
@@ -61,6 +76,15 @@
       "type": ["boolean", "string"],
       "description": "Write Webpack Stats JSON to disk",
       "default": false
+    },
+    "statsJson": {
+      "type": ["boolean", "string"],
+      "description": "Write stats JSON to disk",
+      "default": false
+    },
+    "previewUrl": {
+      "type": "string",
+      "description": "Disables the default storybook preview and lets you use your own"
     },
     "styles": {
       "type": "array",
@@ -92,6 +116,16 @@
       "items": {
         "$ref": "#/definitions/assetPattern"
       }
+    },
+    "sourceMap": {
+      "type": ["boolean", "object"],
+      "description": "Configure sourcemaps. See: https://angular.io/guide/workspace-config#source-map-configuration",
+      "default": false
+    },
+    "experimentalZoneless": {
+      "type": "boolean",
+      "description": "Experimental: Use zoneless change detection.",
+      "default": false
     }
   },
   "additionalProperties": false,

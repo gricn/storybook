@@ -1,6 +1,6 @@
-import type { ViewportMap } from './models';
+import type { ViewportMap } from './types';
 
-export const INITIAL_VIEWPORTS: ViewportMap = {
+const INITIAL_VIEWPORTS_DATA = {
   iphone5: {
     name: 'iPhone 5',
     styles: {
@@ -89,6 +89,62 @@ export const INITIAL_VIEWPORTS: ViewportMap = {
     },
     type: 'mobile',
   },
+  iphoneSE3: {
+    name: 'iPhone SE 3rd generation',
+    styles: {
+      height: '667px',
+      width: '375px',
+    },
+    type: 'mobile',
+  },
+  iphone13: {
+    name: 'iPhone 13',
+    styles: {
+      height: '844px',
+      width: '390px',
+    },
+    type: 'mobile',
+  },
+  iphone13pro: {
+    name: 'iPhone 13 Pro',
+    styles: {
+      height: '844px',
+      width: '390px',
+    },
+    type: 'mobile',
+  },
+  iphone13promax: {
+    name: 'iPhone 13 Pro Max',
+    styles: {
+      height: '926px',
+      width: '428px',
+    },
+    type: 'mobile',
+  },
+  iphone14: {
+    name: 'iPhone 14',
+    styles: {
+      height: '844px',
+      width: '390px',
+    },
+    type: 'mobile',
+  },
+  iphone14pro: {
+    name: 'iPhone 14 Pro',
+    styles: {
+      height: '852px',
+      width: '393px',
+    },
+    type: 'mobile',
+  },
+  iphone14promax: {
+    name: 'iPhone 14 Pro Max',
+    styles: {
+      height: '932px',
+      width: '430px',
+    },
+    type: 'mobile',
+  },
   ipad: {
     name: 'iPad',
     styles: {
@@ -101,6 +157,14 @@ export const INITIAL_VIEWPORTS: ViewportMap = {
     name: 'iPad Pro 10.5-in',
     styles: {
       height: '1112px',
+      width: '834px',
+    },
+    type: 'tablet',
+  },
+  ipad11p: {
+    name: 'iPad Pro 11-in',
+    styles: {
+      height: '1194px',
       width: '834px',
     },
     type: 'tablet',
@@ -161,7 +225,12 @@ export const INITIAL_VIEWPORTS: ViewportMap = {
     },
     type: 'mobile',
   },
-};
+} as const;
+
+export type InitialViewportKeys = keyof typeof INITIAL_VIEWPORTS_DATA;
+
+export const INITIAL_VIEWPORTS: ViewportMap = INITIAL_VIEWPORTS_DATA;
+
 export const DEFAULT_VIEWPORT = 'responsive';
 
 export const MINIMAL_VIEWPORTS: ViewportMap = {

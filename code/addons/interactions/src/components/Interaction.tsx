@@ -1,21 +1,25 @@
 import * as React from 'react';
-import { IconButton, Icons, TooltipNote, WithTooltip } from '@storybook/components';
+
+import { IconButton, TooltipNote, WithTooltip } from 'storybook/internal/components';
+import { styled, typography } from 'storybook/internal/theming';
+
+import { ListUnorderedIcon } from '@storybook/icons';
 import { type Call, CallStates, type ControlStates } from '@storybook/instrumenter';
-import { styled, typography } from '@storybook/theming';
+
 import { transparentize } from 'polished';
 
+import { isChaiError, isJestError, useAnsiToHtmlFilter } from '../utils';
+import type { Controls } from './InteractionsPanel';
 import { MatcherResult } from './MatcherResult';
 import { MethodCall } from './MethodCall';
 import { StatusIcon } from './StatusIcon';
 
-import type { Controls } from './InteractionsPanel';
-
-const MethodCallWrapper = styled.div(() => ({
+const MethodCallWrapper = styled.div({
   fontFamily: typography.fonts.mono,
   fontSize: typography.size.s1,
   overflowWrap: 'break-word',
   inlineSize: 'calc( 100% - 40px )',
-}));
+});
 
 const RowContainer = styled('div', {
   shouldForwardProp: (prop) => !['call', 'pausedAt'].includes(prop.toString()),
@@ -33,7 +37,7 @@ const RowContainer = styled('div', {
           ? transparentize(0.93, theme.color.negative)
           : theme.background.warning,
     }),
-    paddingLeft: call.ancestors.length * 20,
+    paddingLeft: (call.ancestors?.length ?? 0) * 20,
   }),
   ({ theme, call, pausedAt }) =>
     pausedAt === call.id && {
@@ -111,15 +115,28 @@ const RowMessage = styled('div')(({ theme }) => ({
   },
 }));
 
-const Exception = ({ exception }: { exception: Call['exception'] }) => {
-  if (exception.message.startsWith('expect(')) {
+export const Exception = ({ exception }: { exception: Call['exception'] }) => {
+  const filter = useAnsiToHtmlFilter();
+  if (isJestError(exception)) {
     return <MatcherResult {...exception} />;
   }
+  if (isChaiError(exception)) {
+    return (
+      <RowMessage>
+        <MatcherResult
+          message={`${exception.message}${exception.diff ? `\n\n${exception.diff}` : ''}`}
+          style={{ padding: 0 }}
+        />
+        <p>See the full stack trace in the browser console.</p>
+      </RowMessage>
+    );
+  }
+
   const paragraphs = exception.message.split('\n\n');
   const more = paragraphs.length > 1;
   return (
     <RowMessage>
-      <pre>{paragraphs[0]}</pre>
+      <pre dangerouslySetInnerHTML={{ __html: filter.toHtml(paragraphs[0]) }}></pre>
       {more && <p>See the full stack trace in the browser console.</p>}
     </RowMessage>
   );
@@ -147,9 +164,11 @@ export const Interaction = ({
   pausedAt?: Call['id'];
 }) => {
   const [isHovered, setIsHovered] = React.useState(false);
-  const isInteractive = !controlStates.goto || !call.interceptable || !!call.ancestors.length;
+  const isInteractive = !controlStates.goto || !call.interceptable || !!call.ancestors?.length;
 
-  if (isHidden) return null;
+  if (isHidden) {
+    return null;
+  }
 
   return (
     <RowContainer call={call} pausedAt={pausedAt}>
@@ -173,8 +192,8 @@ export const Interaction = ({
               hasChrome={false}
               tooltip={<Note note={`${isCollapsed ? 'Show' : 'Hide'} interactions`} />}
             >
-              <StyledIconButton containsIcon onClick={toggleCollapsed}>
-                <Icons icon="listunordered" />
+              <StyledIconButton onClick={toggleCollapsed}>
+                <ListUnorderedIcon />
               </StyledIconButton>
             </WithTooltip>
           )}

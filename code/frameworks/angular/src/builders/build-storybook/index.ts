@@ -1,3 +1,8 @@
+import { getEnvConfig, versions } from 'storybook/internal/common';
+import { buildStaticStandalone, withTelemetry } from 'storybook/internal/core-server';
+import { addToGlobalContext } from 'storybook/internal/telemetry';
+import { CLIOptions } from 'storybook/internal/types';
+
 import {
   BuilderContext,
   BuilderHandlerFn,
@@ -7,42 +12,51 @@ import {
   createBuilder,
   targetFromTargetString,
 } from '@angular-devkit/architect';
-import { JsonObject } from '@angular-devkit/core';
-import { from, of, throwError } from 'rxjs';
-import { catchError, map, mapTo, switchMap } from 'rxjs/operators';
-import { sync as findUpSync } from 'find-up';
-import { sync as readUpSync } from 'read-pkg-up';
 import { BrowserBuilderOptions, StylePreprocessorOptions } from '@angular-devkit/build-angular';
-
-import { CLIOptions } from '@storybook/types';
-import { getEnvConfig, versions } from '@storybook/cli';
-import { addToGlobalContext } from '@storybook/telemetry';
-
-import { buildStaticStandalone, withTelemetry } from '@storybook/core-server';
 import {
   AssetPattern,
+  SourceMapUnion,
   StyleElement,
 } from '@angular-devkit/build-angular/src/builders/browser/schema';
-import { StandaloneOptions } from '../utils/standalone-options';
-import { runCompodoc } from '../utils/run-compodoc';
+import { JsonObject } from '@angular-devkit/core';
+import { findPackageSync } from 'fd-package-json';
+import { sync as findUpSync } from 'find-up';
+import { from, of, throwError } from 'rxjs';
+import { catchError, map, mapTo, switchMap } from 'rxjs/operators';
+
 import { errorSummary, printErrorDetails } from '../utils/error-handler';
+import { runCompodoc } from '../utils/run-compodoc';
+import { StandaloneOptions } from '../utils/standalone-options';
 
 addToGlobalContext('cliVersion', versions.storybook);
 
 export type StorybookBuilderOptions = JsonObject & {
   browserTarget?: string | null;
   tsConfig?: string;
+  test: boolean;
   docs: boolean;
   compodoc: boolean;
   compodocArgs: string[];
   enableProdMode?: boolean;
   styles?: StyleElement[];
   stylePreprocessorOptions?: StylePreprocessorOptions;
+  preserveSymlinks?: boolean;
   assets?: AssetPattern[];
+  sourceMap?: SourceMapUnion;
+  experimentalZoneless?: boolean;
 } & Pick<
     // makes sure the option exists
     CLIOptions,
-    'outputDir' | 'configDir' | 'loglevel' | 'quiet' | 'webpackStatsJson' | 'disableTelemetry'
+    | 'outputDir'
+    | 'configDir'
+    | 'loglevel'
+    | 'quiet'
+    | 'test'
+    | 'webpackStatsJson'
+    | 'statsJson'
+    | 'disableTelemetry'
+    | 'debugWebpack'
+    | 'previewUrl'
   >;
 
 export type StorybookBuilderOutput = JsonObject & BuilderOutput & { [key: string]: any };
@@ -55,10 +69,12 @@ const commandBuilder: BuilderHandlerFn<StorybookBuilderOptions> = (
 ): BuilderOutputLike => {
   const builder = from(setup(options, context)).pipe(
     switchMap(({ tsConfig }) => {
+      const docTSConfig = findUpSync('tsconfig.doc.json', { cwd: options.configDir });
       const runCompodoc$ = options.compodoc
-        ? runCompodoc({ compodocArgs: options.compodocArgs, tsconfig: tsConfig }, context).pipe(
-            mapTo({ tsConfig })
-          )
+        ? runCompodoc(
+            { compodocArgs: options.compodocArgs, tsconfig: docTSConfig ?? tsConfig },
+            context
+          ).pipe(mapTo({ tsConfig }))
         : of({});
 
       return runCompodoc$.pipe(mapTo({ tsConfig }));
@@ -77,20 +93,28 @@ const commandBuilder: BuilderHandlerFn<StorybookBuilderOptions> = (
         configDir,
         docs,
         loglevel,
+        test,
         outputDir,
         quiet,
         enableProdMode = true,
         webpackStatsJson,
+        statsJson,
+        debugWebpack,
         disableTelemetry,
         assets,
+        previewUrl,
+        sourceMap = false,
+        preserveSymlinks = false,
+        experimentalZoneless = false,
       } = options;
 
       const standaloneOptions: StandaloneBuildOptions = {
-        packageJson: readUpSync({ cwd: __dirname }).packageJson,
+        packageJson: findPackageSync(__dirname),
         configDir,
         ...(docs ? { docs } : {}),
         loglevel,
         outputDir,
+        test,
         quiet,
         enableProdMode,
         disableTelemetry,
@@ -100,9 +124,15 @@ const commandBuilder: BuilderHandlerFn<StorybookBuilderOptions> = (
           ...(stylePreprocessorOptions ? { stylePreprocessorOptions } : {}),
           ...(styles ? { styles } : {}),
           ...(assets ? { assets } : {}),
+          sourceMap,
+          preserveSymlinks,
+          experimentalZoneless,
         },
         tsConfig,
         webpackStatsJson,
+        statsJson,
+        debugWebpack,
+        previewUrl,
       };
 
       return standaloneOptions;

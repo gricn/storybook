@@ -7,7 +7,7 @@
 Takes your provider component, global styles, and theme(s)to wrap your stories in.
 
 ```js
-import { withThemeFromJSXProvider } from '@storybook/addon-styling';
+import { withThemeFromJSXProvider } from '@storybook/addon-themes';
 
 export const decorators = [
   withThemeFromJSXProvider({
@@ -36,7 +36,7 @@ Available options:
 Takes your theme class names to apply your parent element to enable your theme(s).
 
 ```js
-import { withThemeByClassName } from '@storybook/addon-styling';
+import { withThemeByClassName } from '@storybook/addon-themes';
 
 export const decorators = [
   withThemeByClassName({
@@ -62,7 +62,7 @@ Available options:
 Takes your theme names and data attribute to apply your parent element to enable your theme(s).
 
 ```js
-import { withThemeByDataAttribute } from '@storybook/addon-styling';
+import { withThemeByDataAttribute } from '@storybook/addon-themes';
 
 export const decorators = [
   withThemeByDataAttribute({
@@ -94,7 +94,8 @@ If none of these decorators work for your library there is still hope. We've pro
 Pulls the selected theme from storybook's global state.
 
 ```js
-import { DecoratorHelpers } from '@storybook/addon-styling';
+import { DecoratorHelpers } from '@storybook/addon-themes';
+
 const { pluckThemeFromContext } = DecoratorHelpers;
 
 export const myCustomDecorator =
@@ -108,10 +109,14 @@ export const myCustomDecorator =
 
 ### `useThemeParameters`
 
+(⛔️ **Deprecated**)
+_Do not use this hook anymore. Access the theme directly via the context instead e.g. `context.parameters.themes`_
+
 Returns the theme parameters for this addon.
 
 ```js
-import { DecoratorHelpers } from '@storybook/addon-styling';
+import { DecoratorHelpers } from '@storybook/addon-themes';
+
 const { useThemeParameters } = DecoratorHelpers;
 
 export const myCustomDecorator =
@@ -128,7 +133,8 @@ export const myCustomDecorator =
 Used to register the themes and defaultTheme with the addon state.
 
 ```js
-import { DecoratorHelpers } from '@storybook/addon-styling';
+import { DecoratorHelpers } from '@storybook/addon-themes';
+
 const { initializeThemeState } = DecoratorHelpers;
 
 export const myCustomDecorator = ({ themes, defaultState, ...rest }) => {
@@ -145,19 +151,18 @@ export const myCustomDecorator = ({ themes, defaultState, ...rest }) => {
 Let's use Vuetify as an example. Vuetify uses it's own global state to know which theme to render. To build a custom decorator to accommodate this method we'll need to do the following
 
 ```js
-// .storybook/withVeutifyTheme.decorator.js
-
-import { DecoratorHelpers } from '@storybook/addon-styling';
+// .storybook/withVuetifyTheme.decorator.js
+import { DecoratorHelpers } from '@storybook/addon-themes';
 import { useTheme } from 'vuetify';
 
-const { initializeThemeState, pluckThemeFromContext, useThemeParameters } = DecoratorHelpers;
+const { initializeThemeState, pluckThemeFromContext } = DecoratorHelpers;
 
 export const withVuetifyTheme = ({ themes, defaultTheme }) => {
   initializeThemeState(Object.keys(themes), defaultTheme);
 
   return (story, context) => {
     const selectedTheme = pluckThemeFromContext(context);
-    const { themeOverride } = useThemeParameters();
+    const { themeOverride } = context.parameters.themes ?? {};
 
     const selected = themeOverride || selectedTheme || defaultTheme;
 
@@ -166,7 +171,7 @@ export const withVuetifyTheme = ({ themes, defaultTheme }) => {
       setup() {
         const theme = useTheme();
 
-        theme.global.name.value = selected;
+        theme.global.name.value = themes[selected];
 
         return {
           theme,
@@ -182,7 +187,6 @@ This can then be provided to Storybook in `.storybook/preview.js`:
 
 ```js
 // .storybook/preview.js
-
 import { setup } from '@storybook/vue3';
 import { registerPlugins } from '../src/plugins';
 import { withVuetifyTheme } from './withVuetifyTheme.decorator';
@@ -195,12 +199,14 @@ setup((app) => {
 
 export const decorators = [
   withVuetifyTheme({
+    // These keys are the labels that will be displayed in the toolbar theme switcher
+    // The values must match the theme keys from your VuetifyOptions
     themes: {
       light: 'light',
       dark: 'dark',
-      customTheme: 'myCustomTheme',
+      'high contrast': 'highContrast',
     },
-    defaultTheme: 'customTheme', // The key of your default theme
+    defaultTheme: 'light', // The key of your default theme
   }),
 ];
 ```

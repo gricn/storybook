@@ -1,8 +1,13 @@
-import 'jest-specific-snapshot';
-import path from 'path';
-import fs from 'fs';
-import tmp from 'tmp';
+// @vitest-environment happy-dom
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { describe, expect, it, vi } from 'vitest';
+
 import { sync as spawnSync } from 'cross-spawn';
+import tmp from 'tmp';
+
+import { extractArgTypesFromElements } from './custom-elements';
 
 // File hierarchy:
 // __testfixtures__ / some-test-case / input.*
@@ -12,14 +17,14 @@ const runWebComponentsAnalyzer = (inputPath: string) => {
   const { name: tmpDir, removeCallback } = tmp.dirSync();
   const customElementsFile = `${tmpDir}/custom-elements.json`;
   spawnSync(
-    path.join(__dirname, '../../../../node_modules/.bin/wca'),
+    join(__dirname, '../../../../node_modules/.bin/wca'),
     ['analyze', inputPath, '--outFile', customElementsFile],
     {
       stdio: 'ignore',
       shell: true,
     }
   );
-  const output = fs.readFileSync(customElementsFile, 'utf8');
+  const output = readFileSync(customElementsFile, 'utf8');
   try {
     removeCallback();
   } catch (e) {
@@ -28,39 +33,35 @@ const runWebComponentsAnalyzer = (inputPath: string) => {
   return output;
 };
 
-describe('web-components component properties', () => {
+vi.mock('lit', () => ({ default: {} }));
+vi.mock('lit/directive-helpers.js', () => ({ default: {} }));
+
+describe('web-components component properties', { timeout: 15000 }, () => {
   // we need to mock lit and dynamically require custom-elements
   // because lit is distributed as ESM not CJS
   // https://github.com/Polymer/lit-html/issues/516
-  jest.mock('lit', () => {});
-  jest.mock('lit/directive-helpers.js', () => {});
-  // eslint-disable-next-line global-require
-  const { extractArgTypesFromElements } = require('./custom-elements');
 
-  const fixturesDir = path.join(__dirname, '__testfixtures__');
-  fs.readdirSync(fixturesDir, { withFileTypes: true }).forEach((testEntry) => {
+  const fixturesDir = join(__dirname, '__testfixtures__');
+  const testEntries = readdirSync(fixturesDir, { withFileTypes: true });
+
+  it.each(testEntries)('$name', async (testEntry) => {
     if (testEntry.isDirectory()) {
-      const testDir = path.join(fixturesDir, testEntry.name);
-      const testFile = fs.readdirSync(testDir).find((fileName) => inputRegExp.test(fileName));
+      const testDir = join(fixturesDir, testEntry.name);
+      const testFile = readdirSync(testDir).find((fileName) => inputRegExp.test(fileName));
       if (testFile) {
-        it(`${testEntry.name}`, () => {
-          const inputPath = path.join(testDir, testFile);
+        const inputPath = join(testDir, testFile);
 
-          // snapshot the output of wca
-          const customElementsJson = runWebComponentsAnalyzer(inputPath);
-          const customElements = JSON.parse(customElementsJson);
-          customElements.tags.forEach((tag: any) => {
-            // eslint-disable-next-line no-param-reassign
-            tag.path = 'dummy-path-to-component';
-          });
-          expect(customElements).toMatchSpecificSnapshot(
-            path.join(testDir, 'custom-elements.snapshot')
-          );
-
-          // snapshot the properties
-          const properties = extractArgTypesFromElements('input', customElements);
-          expect(properties).toMatchSpecificSnapshot(path.join(testDir, 'properties.snapshot'));
+        // snapshot the output of wca
+        const customElementsJson = runWebComponentsAnalyzer(inputPath);
+        const customElements = JSON.parse(customElementsJson);
+        customElements.tags.forEach((tag: any) => {
+          tag.path = 'dummy-path-to-component';
         });
+        await expect(customElements).toMatchFileSnapshot(join(testDir, 'custom-elements.snapshot'));
+
+        // snapshot the properties
+        const properties = extractArgTypesFromElements('input', customElements);
+        await expect(properties).toMatchFileSnapshot(join(testDir, 'properties.snapshot'));
       }
     }
   });
